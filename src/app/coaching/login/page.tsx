@@ -73,8 +73,8 @@ export default function CoachingLogin() {
       </div>
 
       {/* Right Half - Login Form */}
-      <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-20 bg-dark-bg relative">
-        <Link href="/" className="absolute top-8 left-6 lg:left-8 flex items-center text-sm font-medium text-slate-400 hover:text-white transition-colors">
+      <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-20 bg-white relative">
+        <Link href="/" className="absolute top-8 left-6 lg:left-8 flex items-center text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
         </Link>
 
@@ -85,9 +85,9 @@ export default function CoachingLogin() {
 
           <div className="flex items-center gap-3 mb-2">
             <Building2 className="w-8 h-8 text-primary-500" />
-            <h2 className="text-3xl font-bold text-white">Coaching Login</h2>
+            <h2 className="text-3xl font-bold text-slate-900">Coaching Login</h2>
           </div>
-          <p className="text-slate-400 mb-8">Sign in to your coaching administration dashboard.</p>
+          <p className="text-slate-600 mb-8">Sign in to your coaching administration dashboard.</p>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <Input
@@ -114,15 +114,15 @@ export default function CoachingLogin() {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 rounded border-white/10 bg-white/5 text-primary-500 focus:ring-primary-500 focus:ring-offset-dark-bg focus:ring-offset-2 transition-colors cursor-pointer"
+                  className="h-4 w-4 rounded border-slate-300 bg-white text-primary-600 focus:ring-primary-500 focus:ring-offset-white focus:ring-offset-2 transition-colors cursor-pointer"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-400 cursor-pointer">
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600 cursor-pointer">
                   Remember me
                 </label>
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-medium text-primary-400 hover:text-primary-300 transition-colors">
+                <a href="#" className="font-medium text-primary-600 hover:text-primary-500 transition-colors">
                   Forgot your password?
                 </a>
               </div>
@@ -133,8 +133,8 @@ export default function CoachingLogin() {
             </Button>
           </form>
           
-          <div className="mt-8 text-center text-sm text-slate-400">
-            Want to get started? <Link href="/request-demo" className="font-medium text-primary-400 hover:text-primary-300">Request a Demo</Link>
+          <div className="mt-8 text-center text-sm text-slate-600">
+            Want to get started? <Link href="/request-demo" className="font-medium text-primary-600 hover:text-primary-500">Request a Demo</Link>
           </div>
         </div>
       </div>

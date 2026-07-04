@@ -108,13 +108,13 @@ export function DemoForm() {
       </div>
 
       <div className="w-full flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-slate-300">Message (Optional)</label>
+        <label className="text-sm font-medium text-slate-700">Message (Optional)</label>
         <div className="relative">
           <div className="absolute left-3 top-3 text-slate-400 pointer-events-none">
             <MessageSquare className="w-5 h-5" />
           </div>
           <textarea
-            className="flex min-h-[120px] w-full rounded-lg bg-white/5 border border-white/10 px-3 py-2 pl-10 text-sm text-white placeholder:text-slate-500 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:border-transparent resize-y"
+            className="flex min-h-[120px] w-full rounded-lg bg-white border border-slate-200 px-3 py-2 pl-10 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:border-primary-500 resize-y"
             placeholder="Tell us about your requirements..."
             {...register('message')}
           />

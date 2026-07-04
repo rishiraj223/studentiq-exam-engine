@@ -48,7 +48,7 @@ export default function Home() {
               </span>
             </h1>
             
-            <p className="mt-4 text-xl sm:text-2xl text-slate-400 max-w-3xl mx-auto mb-10 animate-slide-up leading-relaxed" style={{ animationDelay: '200ms' }}>
+            <p className="mt-4 text-xl sm:text-2xl text-slate-600 max-w-3xl mx-auto mb-10 animate-slide-up leading-relaxed" style={{ animationDelay: '200ms' }}>
               Deploy NTA-identical mock tests for JEE, NEET & MHT-CET in seconds. Our powerful platform syncs student analytics directly to your coaching dashboard.
             </p>
             
@@ -66,7 +66,7 @@ export default function Home() {
             </div>
 
             {/* Stats Bar */}
-            <div className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-8 pt-10 border-t border-white/5 w-full max-w-4xl mx-auto animate-fade-in" style={{ animationDelay: '500ms' }}>
+            <div className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-8 pt-10 border-t border-slate-200 w-full max-w-4xl mx-auto animate-fade-in" style={{ animationDelay: '500ms' }}>
               {[
                 { label: 'Questions in Bank', value: '10,000+' },
                 { label: 'Supported Exams', value: '3 Types' },
@@ -74,7 +74,7 @@ export default function Home() {
                 { label: 'Platform Security', value: '100%' },
               ].map((stat, i) => (
                 <div key={i} className="flex flex-col items-center">
-                  <span className="text-3xl font-bold text-white mb-1">{stat.value}</span>
+                  <span className="text-3xl font-bold text-slate-900 mb-1">{stat.value}</span>
                   <span className="text-sm font-medium text-slate-500">{stat.label}</span>
                 </div>
               ))}
@@ -87,8 +87,8 @@ export default function Home() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto mb-16">
               <Badge variant="default" className="mb-4">Capabilities</Badge>
-              <h2 className="text-3xl sm:text-4xl font-bold mb-4">Everything Your Coaching Needs</h2>
-              <p className="text-lg text-slate-400">
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-slate-900">Everything Your Coaching Needs</h2>
+              <p className="text-lg text-slate-600">
                 A complete ecosystem designed to give your coaching institute the technical edge over generic learning apps.
               </p>
             </div>
@@ -102,13 +102,13 @@ export default function Home() {
                 { icon: Shield, title: 'Secure CBT', desc: 'Advanced tab-switch detection, window monitoring, and copy-paste prevention to maintain test integrity.', color: 'from-amber-500 to-amber-600' },
                 { icon: Users, title: 'Parent Portal Sync', desc: 'Results automatically flow back to the main StudentIQ parent app for complete transparency.', color: 'from-rose-500 to-rose-600' },
               ].map((f, i) => (
-                <Card key={i} hover className="border-white/5">
+                <Card key={i} hover className="border-slate-200">
                   <CardContent className="pt-6">
                     <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-6 shadow-lg`}>
                       <f.icon className="w-6 h-6 text-white" />
                     </div>
-                    <h3 className="text-xl font-semibold mb-3">{f.title}</h3>
-                    <p className="text-slate-400 leading-relaxed">{f.desc}</p>
+                    <h3 className="text-xl font-semibold mb-3 text-slate-900">{f.title}</h3>
+                    <p className="text-slate-600 leading-relaxed">{f.desc}</p>
                   </CardContent>
                 </Card>
               ))}
@@ -117,29 +117,29 @@ export default function Home() {
         </section>
 
         {/* HOW IT WORKS */}
-        <section id="how-it-works" className="py-20 border-t border-white/5 bg-dark-surface/50">
+        <section id="how-it-works" className="py-20 border-t border-slate-200 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
-              <h2 className="text-3xl sm:text-4xl font-bold mb-4">How It Works</h2>
-              <p className="text-lg text-slate-400">Launch a professional online test in three simple steps.</p>
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-slate-900">How It Works</h2>
+              <p className="text-lg text-slate-600">Launch a professional online test in three simple steps.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
               {/* Desktop connector line */}
-              <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-y-1/2 z-0" />
+              <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-slate-200 to-transparent -translate-y-1/2 z-0" />
 
               {[
                 { step: '01', icon: FileText, title: 'Create Test', desc: 'Select exam type, subjects, and chapters. Let the engine auto-generate a balanced paper, or pick manually.' },
                 { step: '02', icon: Target, title: 'Students Attempt', desc: 'Generate a secure link. Students take the exam in our NTA-identical interface with strict anti-cheat monitoring.' },
                 { step: '03', icon: BarChart3, title: 'Get Analytics', desc: 'Scores and deep insights are instantly calculated and synced back to your coaching dashboard.' },
               ].map((s, i) => (
-                <Card key={i} glass={false} className="relative z-10 bg-dark-bg border border-white/10 p-8 flex flex-col items-center text-center">
-                  <div className="absolute top-4 right-6 text-6xl font-black text-primary-500/5 select-none">{s.step}</div>
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-dark-surface to-dark-card border border-white/10 flex items-center justify-center mb-6 shadow-xl relative z-10">
-                    <s.icon className="w-8 h-8 text-primary-400" />
+                <Card key={i} glass={false} className="relative z-10 bg-slate-50 border border-slate-200 p-8 flex flex-col items-center text-center">
+                  <div className="absolute top-4 right-6 text-6xl font-black text-primary-500/10 select-none">{s.step}</div>
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-white to-slate-50 border border-slate-200 flex items-center justify-center mb-6 shadow-xl relative z-10">
+                    <s.icon className="w-8 h-8 text-primary-500" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-4 relative z-10">{s.title}</h3>
-                  <p className="text-slate-400 relative z-10">{s.desc}</p>
+                  <h3 className="text-xl font-semibold mb-4 relative z-10 text-slate-900">{s.title}</h3>
+                  <p className="text-slate-600 relative z-10">{s.desc}</p>
                 </Card>
               ))}
             </div>
@@ -147,12 +147,12 @@ export default function Home() {
         </section>
 
         {/* BENEFITS */}
-        <section id="benefits" className="py-20 border-t border-white/5">
+        <section id="benefits" className="py-20 border-t border-slate-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <Badge variant="warning" className="mb-4">Why StudentIQ</Badge>
-              <h2 className="text-3xl sm:text-4xl font-bold mb-4">Not Just Another Testing App</h2>
-              <p className="text-lg text-slate-400 max-w-2xl mx-auto">
+              <h2 className="text-3xl sm:text-4xl font-bold mb-4 text-slate-900">Not Just Another Testing App</h2>
+              <p className="text-lg text-slate-600 max-w-2xl mx-auto">
                 Other apps bypass the coaching center. We empower it.
               </p>
             </div>
@@ -163,11 +163,11 @@ export default function Home() {
                 { title: 'Zero Data Entry', desc: 'Don\'t waste hours typing math equations. Our system comes pre-loaded with thousands of verified previous year questions.' },
                 { title: 'Familiar Interface', desc: 'We mimic the exact color scheme, button placement, and rules of the real exams so students don\'t panic on exam day.' },
               ].map((b, i) => (
-                <div key={i} className="bg-dark-card rounded-2xl p-8 border border-white/5 relative overflow-hidden group">
+                <div key={i} className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm relative overflow-hidden group">
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary-500 to-accent-purple opacity-50 group-hover:opacity-100 transition-opacity" />
                   <CheckCircle2 className="w-8 h-8 text-primary-500 mb-6" />
-                  <h3 className="text-xl font-bold mb-4 text-white">{b.title}</h3>
-                  <p className="text-slate-400 leading-relaxed">{b.desc}</p>
+                  <h3 className="text-xl font-bold mb-4 text-slate-900">{b.title}</h3>
+                  <p className="text-slate-600 leading-relaxed">{b.desc}</p>
                 </div>
               ))}
             </div>
@@ -177,7 +177,7 @@ export default function Home() {
         {/* CTA BANNER */}
         <section className="py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-5xl mx-auto">
-            <div className="rounded-3xl bg-gradient-to-br from-primary-800 via-primary-700 to-accent-purple p-10 sm:p-16 text-center shadow-2xl shadow-primary-900/50 border border-white/10 relative overflow-hidden">
+            <div className="rounded-3xl bg-gradient-to-br from-primary-800 via-primary-700 to-accent-purple p-10 sm:p-16 text-center shadow-2xl shadow-primary-900/50 border border-primary-400/30 relative overflow-hidden">
               <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
               
               <div className="relative z-10">

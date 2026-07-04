@@ -18,7 +18,7 @@ export function Navbar() {
   ];
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-dark-bg/80 backdrop-blur-xl border-b border-white/5">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
           <div className="flex items-center">
@@ -34,7 +34,7 @@ export function Navbar() {
                 <Link
                   key={link.label}
                   href={link.href}
-                  className="text-sm font-medium text-slate-400 hover:text-white transition-colors"
+                  className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
                 >
                   {link.label}
                 </Link>
@@ -44,6 +44,9 @@ export function Navbar() {
           
           {/* Desktop Buttons */}
           <div className="hidden md:flex items-center space-x-4">
+            <Link href="/signup">
+              <Button variant="secondary" size="sm">Sign Up</Button>
+            </Link>
             <Link href="/student/login">
               <Button variant="ghost" size="sm">Student Login</Button>
             </Link>
@@ -56,7 +59,7 @@ export function Navbar() {
           <div className="md:hidden flex items-center">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="text-slate-400 hover:text-white focus:outline-none p-2 rounded-md bg-white/5 border border-white/10"
+              className="text-slate-600 hover:text-slate-900 focus:outline-none p-2 rounded-md bg-slate-100 border border-slate-200"
             >
               {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -68,21 +71,24 @@ export function Navbar() {
       <div
         className={cn(
           "md:hidden overflow-hidden transition-all duration-300 ease-in-out",
-          isOpen ? "max-h-96 opacity-100 border-b border-white/5" : "max-h-0 opacity-0"
+          isOpen ? "max-h-[500px] opacity-100 border-b border-slate-200" : "max-h-0 opacity-0"
         )}
       >
-        <div className="px-4 pt-2 pb-6 space-y-1 bg-dark-surface/95 backdrop-blur-xl">
+        <div className="px-4 pt-2 pb-6 space-y-1 bg-white/95 backdrop-blur-xl shadow-lg">
           {navLinks.map((link) => (
             <Link
               key={link.label}
               href={link.href}
               onClick={() => setIsOpen(false)}
-              className="block px-3 py-3 text-base font-medium text-slate-300 hover:text-white hover:bg-white/5 rounded-md"
+              className="block px-3 py-3 text-base font-medium text-slate-700 hover:text-slate-900 hover:bg-slate-50 rounded-md"
             >
               {link.label}
             </Link>
           ))}
           <div className="pt-4 flex flex-col gap-3 px-3">
+            <Link href="/signup" onClick={() => setIsOpen(false)}>
+              <Button variant="secondary" className="w-full">Sign Up</Button>
+            </Link>
             <Link href="/student/login" onClick={() => setIsOpen(false)}>
               <Button variant="outline" className="w-full">Student Login</Button>
             </Link>
