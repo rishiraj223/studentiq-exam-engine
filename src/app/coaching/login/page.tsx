@@ -9,6 +9,9 @@ import { ArrowLeft, Mail, Lock, Building2 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/browser';
+import { toast } from 'sonner';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -19,6 +22,8 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function CoachingLogin() {
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
   const {
     register,
@@ -28,13 +33,22 @@ export default function CoachingLogin() {
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = (data: LoginFormValues) => {
+  const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
-    // Simulate login for now
-    setTimeout(() => {
-      console.log('Login data:', data);
+    
+    const { error } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password,
+    });
+
+    if (error) {
+      toast.error('Login failed', { description: error.message });
       setIsLoading(false);
-    }, 1500);
+      return;
+    }
+
+    toast.success('Login successful');
+    router.push('/dashboard/questions');
   };
 
   return (

@@ -44,10 +44,10 @@ export function Logo({ size = 'md', showText = true, className }: LogoProps) {
       {showText && (
         <div className="flex flex-col justify-center leading-none">
           <div className={cn("font-bold tracking-tight", s.text)}>
-            <span className="text-white">Student</span>
-            <span className="text-primary-400">IQ</span>
+            <span className="text-slate-900">Student</span>
+            <span className="text-primary-600">IQ</span>
           </div>
-          <div className={cn("font-semibold tracking-wider text-slate-400 uppercase mt-0.5", s.sub)}>
+          <div className={cn("font-semibold tracking-wider text-slate-500 uppercase mt-0.5", s.sub)}>
             Exam Engine
           </div>
         </div>

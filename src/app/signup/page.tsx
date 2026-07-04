@@ -5,13 +5,16 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Mail, Lock, KeyRound, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, KeyRound, CheckCircle2, Building2 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/browser';
 
 const signUpSchema = z.object({
+  coachingName: z.string().min(3, 'Coaching name must be at least 3 characters'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   securityCode: z.string().min(6, 'Security code must be at least 6 characters'),
@@ -21,6 +24,8 @@ type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 export default function SignUp() {
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
   const {
     register,
@@ -30,26 +35,48 @@ export default function SignUp() {
     resolver: zodResolver(signUpSchema),
   });
 
-  const onSubmit = (data: SignUpFormValues) => {
+  const onSubmit = async (data: SignUpFormValues) => {
     setIsLoading(true);
     
-    // Simulate sign up process and security code validation
-    setTimeout(() => {
-      console.log('Sign Up data:', data);
-      
-      // Basic mock validation for security code
-      if (data.securityCode.toLowerCase().includes('demo') || data.securityCode.length >= 6) {
+    try {
+      const response = await fetch('/api/auth/register-coaching', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          coachingName: data.coachingName,
+          securityCode: data.securityCode,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        toast.error('Signup failed', { description: result.error });
+        setIsLoading(false);
+        return;
+      }
+
+      // Auto login after successful registration
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+
+      if (loginError) {
+        toast.error('Account created, but login failed', { description: loginError.message });
+      } else {
         toast.success('Account created successfully!', {
           description: 'Welcome to StudentIQ Exam Engine.',
         });
-      } else {
-        toast.error('Invalid Security Code', {
-          description: 'Please enter the valid security code provided to you after purchase.',
-        });
+        router.push('/dashboard/questions');
       }
-      
-      setIsLoading(false);
-    }, 1500);
+    } catch (error) {
+      toast.error('Something went wrong during registration');
+    }
+    
+    setIsLoading(false);
   };
 
   return (
@@ -101,6 +128,15 @@ export default function SignUp() {
           <p className="text-slate-600 mb-8">Create your account using your security code.</p>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+            <Input
+              label="Coaching Name"
+              placeholder="e.g. Apex Academy"
+              type="text"
+              icon={<Building2 className="w-5 h-5" />}
+              error={errors.coachingName?.message}
+              {...register('coachingName')}
+            />
+
             <Input
               label="Email Address"
               placeholder="you@example.com"
