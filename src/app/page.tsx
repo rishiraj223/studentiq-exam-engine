@@ -53,14 +53,9 @@ export default function Home() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center w-full sm:w-auto animate-slide-up" style={{ animationDelay: '300ms' }}>
-              <Link href="/request-demo" className="w-full sm:w-auto">
+              <Link href="/student/login" className="w-full sm:w-auto">
                 <Button variant="primary" size="lg" className="w-full sm:w-auto text-lg px-10">
-                  Request Demo <ArrowRight className="ml-2 w-5 h-5" />
-                </Button>
-              </Link>
-              <Link href="#features" className="w-full sm:w-auto">
-                <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg px-10">
-                  Explore Features
+                  Student Login <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
             </div>
@@ -186,14 +181,9 @@ export default function Home() {
                   Join forward-thinking institutes providing the ultimate online testing experience.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Link href="/request-demo">
+                  <Link href="/student/login">
                     <Button variant="secondary" size="lg" className="w-full sm:w-auto text-lg px-8 py-6">
-                      Request a Free Demo
-                    </Button>
-                  </Link>
-                  <Link href="/coaching/login">
-                    <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg px-8 py-6 bg-black/20 hover:bg-black/40 border-white/30">
-                      Coaching Login
+                      Student Login
                     </Button>
                   </Link>
                 </div>

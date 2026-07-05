@@ -14,7 +14,6 @@ export function Navbar() {
     { label: 'Features', href: '/#features' },
     { label: 'How It Works', href: '/#how-it-works' },
     { label: 'Benefits', href: '/#benefits' },
-    { label: 'Contact', href: '/request-demo' },
   ];
 
   return (
@@ -48,10 +47,7 @@ export function Navbar() {
               <Button variant="secondary" size="sm">Sign Up</Button>
             </Link>
             <Link href="/student/login">
-              <Button variant="ghost" size="sm">Student Login</Button>
-            </Link>
-            <Link href="/coaching/login">
-              <Button variant="primary" size="sm">Coaching Login</Button>
+              <Button variant="primary" size="sm">Student Login</Button>
             </Link>
           </div>
 
@@ -90,10 +86,7 @@ export function Navbar() {
               <Button variant="secondary" className="w-full">Sign Up</Button>
             </Link>
             <Link href="/student/login" onClick={() => setIsOpen(false)}>
-              <Button variant="outline" className="w-full">Student Login</Button>
-            </Link>
-            <Link href="/coaching/login" onClick={() => setIsOpen(false)}>
-              <Button variant="primary" className="w-full">Coaching Login</Button>
+              <Button variant="primary" className="w-full">Student Login</Button>
             </Link>
           </div>
         </div>

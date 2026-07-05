@@ -9,6 +9,9 @@ import { ArrowLeft, Mail, Lock, CheckCircle2 } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { createClient } from '@/lib/supabase/browser';
+import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -28,13 +31,25 @@ export default function StudentLogin() {
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = (data: LoginFormValues) => {
+  const router = useRouter();
+  const supabase = createClient();
+
+  const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
-    // Simulate login for now
-    setTimeout(() => {
-      console.log('Login data:', data);
+    
+    const { error } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password,
+    });
+
+    if (error) {
+      toast.error('Login failed', { description: error.message });
       setIsLoading(false);
-    }, 1500);
+      return;
+    }
+
+    toast.success('Logged in successfully!');
+    router.push('/student/dashboard');
   };
 
   return (
@@ -130,7 +145,7 @@ export default function StudentLogin() {
           </form>
           
           <div className="mt-8 text-center text-sm text-slate-600">
-            Don't have an account? <Link href="/request-demo" className="font-medium text-primary-600 hover:text-primary-500">Request a Demo</Link>
+            Don't have an account? <Link href="/signup" className="font-medium text-primary-600 hover:text-primary-500">Create one</Link>
           </div>
         </div>
       </div>
