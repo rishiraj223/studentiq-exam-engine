@@ -1,33 +1,35 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Database, LayoutDashboard, Settings, LogOut, Users, BookOpen } from 'lucide-react';
+import { LayoutDashboard, FileText, PlusCircle, Settings, LogOut, ChevronRight, BookOpen } from 'lucide-react';
 import { createClient } from '@/lib/supabase/browser';
 import { toast } from 'sonner';
 
 const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/students', label: 'Students', icon: Users },
-  { href: '/dashboard/batches', label: 'Batches', icon: BookOpen },
-  { href: '/dashboard/questions', label: 'Question Bank', icon: Database },
+  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/tests', label: 'My Tests', icon: FileText },
+  { href: '/dashboard/tests/create', label: 'Create Test', icon: PlusCircle },
+  { href: '/dashboard/questions', label: 'Question Bank', icon: BookOpen },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
-
-const pageTitles: Record<string, string> = {
-  '/dashboard': 'Overview',
-  '/dashboard/students': 'Students',
-  '/dashboard/batches': 'Batches',
-  '/dashboard/questions': 'Question Bank',
-  '/dashboard/questions/upload': 'Upload Questions',
-  '/dashboard/settings': 'Settings',
-};
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const [coachingName, setCoachingName] = useState('');
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push('/coaching/login'); return; }
+      const { data } = await supabase.from('coaching_centers').select('name').eq('id', user.id).single();
+      if (data) setCoachingName(data.name);
+    };
+    loadProfile();
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -35,54 +37,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/coaching/login');
   };
 
-  const pageTitle = pageTitles[pathname] ?? 'Dashboard';
-
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0">
-        <div className="h-16 flex items-center px-6 border-b border-slate-200">
-          <span className="text-xl font-bold text-primary-600">Exam Engine</span>
+      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 shadow-sm">
+        <div className="h-16 flex items-center px-6 border-b border-slate-100">
+          <div>
+            <span className="text-base font-bold text-primary-600 block">IQ Exam Engine</span>
+            {coachingName && <span className="text-xs text-slate-400 truncate block max-w-[160px]">{coachingName}</span>}
+          </div>
         </div>
-        <nav className="flex-1 px-4 py-6 space-y-1">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || (href !== '/dashboard' && pathname.startsWith(href));
+        <nav className="flex-1 px-3 py-5 space-y-1">
+          {navItems.map(({ href, label, icon: Icon, exact }) => {
+            const isActive = exact ? pathname === href : pathname.startsWith(href);
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center px-4 py-3 rounded-lg transition-colors text-sm font-medium ${
+                className={`flex items-center px-3 py-2.5 rounded-xl transition-all text-sm font-medium group ${
                   isActive
                     ? 'bg-primary-50 text-primary-700'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
                 }`}
               >
-                <Icon className={`w-5 h-5 mr-3 ${ isActive ? 'text-primary-600' : 'text-slate-400' }`} />
-                {label}
+                <Icon className={`w-4.5 h-4.5 mr-3 shrink-0 ${ isActive ? 'text-primary-600' : 'text-slate-400 group-hover:text-slate-600' }`} />
+                <span className="flex-1">{label}</span>
+                {isActive && <ChevronRight className="w-4 h-4 text-primary-400" />}
               </Link>
             );
           })}
         </nav>
-        <div className="p-4 border-t border-slate-200">
+        <div className="p-3 border-t border-slate-100">
           <button
             onClick={handleSignOut}
-            className="flex items-center w-full px-4 py-3 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors text-sm font-medium"
+            className="flex items-center w-full px-3 py-2.5 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors text-sm font-medium"
           >
-            <LogOut className="w-5 h-5 mr-3" /> Sign Out
+            <LogOut className="w-4 h-4 mr-3" /> Sign Out
           </button>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-          <h1 className="text-xl font-semibold text-slate-800">{pageTitle}</h1>
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-primary-500 text-white flex items-center justify-center font-bold text-sm">
-              A
-            </div>
-          </div>
-        </header>
         <div className="flex-1 overflow-auto p-8">
           {children}
         </div>
