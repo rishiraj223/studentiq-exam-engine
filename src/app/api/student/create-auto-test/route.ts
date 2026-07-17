@@ -51,15 +51,14 @@ function shuffle<T>(arr: T[]): T[] {
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabaseUser = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { getAll: () => cookieStore.getAll() } }
-    );
-
-    const { data: { user } } = await supabaseUser.auth.getUser();
-    if (!user) {
+    const sessionCookie = req.cookies.get('exam_student_session')?.value;
+    if (!sessionCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Validate session object
+    const session = JSON.parse(sessionCookie);
+    if (!session || !session.student_id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -70,31 +69,88 @@ export async function POST(req: NextRequest) {
 
     const admin = createAdminClient();
     const weightage = EXAM_WEIGHTAGE[examType];
-    const allSelectedIds: string[] = [];
+    const sections: Record<string, string[]> = {};
     let totalMarks = 0;
+    let totalQuestions = 0;
 
-    for (const { subject, count } of weightage) {
+    // Fetch questions for all subjects in parallel for maximum speed
+    const fetchPromises = weightage.map(async ({ subject, count }) => {
       const { data: questions } = await admin
         .from('questions')
         .select('id, marks')
         .eq('exam_type', examType)
         .eq('subject', subject);
 
-      if (!questions || questions.length === 0) continue;
+      if (!questions || questions.length === 0) return null;
 
-      const shuffled = shuffle(questions);
+      const shuffled = [...questions].sort(() => 0.5 - Math.random());
       const selected = shuffled.slice(0, Math.min(count, shuffled.length));
-      selected.forEach(q => {
-        allSelectedIds.push(q.id);
-        totalMarks += q.marks || 4;
-      });
-    }
+      
+      return { subject, selected };
+    });
 
-    if (allSelectedIds.length === 0) {
-      return NextResponse.json(
-        { error: 'Not enough questions in the database for this exam yet. Please add more questions via the admin panel.' },
-        { status: 400 }
-      );
+    const results = await Promise.all(fetchPromises);
+
+    results.forEach(result => {
+      if (!result) return;
+      const { subject, selected } = result;
+      sections[subject] = [];
+      selected.forEach(q => {
+        sections[subject].push(q.id);
+        totalMarks += q.marks || 4;
+        totalQuestions++;
+      });
+    });
+
+    if (totalQuestions === 0) {
+      // ===== DEMO MODE GENERATION =====
+      // If DB is empty, generate 5 dummy questions per subject on the fly
+      const dummyQuestions = [];
+      let demoTotalMarks = 0;
+
+      for (const { subject } of weightage) {
+        sections[subject] = [];
+        
+        // Determine marks based on exam type rules
+        let qMarks = 4;
+        let qNeg = 1;
+
+        if (examType.includes('MHT-CET')) {
+          qMarks = subject === 'Mathematics' ? 2 : 1;
+          qNeg = 0;
+        }
+
+        for (let i = 1; i <= 5; i++) {
+          const dummyQ = {
+            exam_type: examType,
+            subject: subject,
+            question_text: `Demo Question ${i} for ${subject} (${examType}). This is an auto-generated dummy question to test the NTA Simulator UI. What is the correct answer?`,
+            options: ['Option A (Correct)', 'Option B', 'Option C', 'Option D'],
+            correct_answer_index: 0,
+            marks: qMarks,
+            negative_marks: qNeg,
+          };
+          dummyQuestions.push(dummyQ);
+        }
+      }
+
+      // Insert dummy questions into DB
+      const { data: insertedQs, error: insertQErr } = await admin
+        .from('questions')
+        .insert(dummyQuestions)
+        .select('id, subject, marks');
+
+      if (insertQErr || !insertedQs) {
+        return NextResponse.json({ error: 'Failed to generate demo questions' }, { status: 500 });
+      }
+
+      // Assign to sections
+      insertedQs.forEach((q) => {
+        sections[q.subject].push(q.id);
+        demoTotalMarks += q.marks || 4;
+        totalQuestions++;
+      });
+      totalMarks = demoTotalMarks;
     }
 
     const testName = `Auto ${examType} Test — ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
@@ -106,7 +162,7 @@ export async function POST(req: NextRequest) {
         exam_type: examType,
         duration_minutes: EXAM_DURATION[examType] || 180,
         total_marks: totalMarks,
-        question_ids: allSelectedIds,
+        sections: sections,
       })
       .select('id')
       .single();
@@ -115,7 +171,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ testId: newTest.id, totalQuestions: allSelectedIds.length, totalMarks });
+    return NextResponse.json({ testId: newTest.id, totalQuestions, totalMarks });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Server error';
     return NextResponse.json({ error: message }, { status: 500 });

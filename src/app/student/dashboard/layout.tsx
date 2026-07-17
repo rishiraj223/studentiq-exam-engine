@@ -17,18 +17,23 @@ export default function StudentDashboardLayout({
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      try {
+        const res = await fetch('/api/auth/student-me');
+        const data = await res.json();
+        if (data.ok && data.student) {
+          setUserName(data.student.name || 'Student');
+        } else {
+          router.push('/student/login');
+        }
+      } catch (err) {
         router.push('/student/login');
-      } else {
-        setUserName(session.user.user_metadata?.name || 'Student');
       }
     };
     checkUser();
-  }, [router, supabase]);
+  }, [router]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await fetch('/api/auth/student-logout', { method: 'POST' });
     router.push('/student/login');
   };
 

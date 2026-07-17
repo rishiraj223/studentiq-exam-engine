@@ -1,151 +1,133 @@
 'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, Mail, Lock, CheckCircle2 } from 'lucide-react';
-import { Logo } from '@/components/ui/Logo';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-import { createClient } from '@/lib/supabase/browser';
-import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
+import { Phone, KeyRound, ArrowRight, Loader2, AlertCircle, Zap } from 'lucide-react';
 
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
-
-type LoginFormValues = z.infer<typeof loginSchema>;
-
-export default function StudentLogin() {
-  const [isLoading, setIsLoading] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema),
-  });
-
+export default function StudentLoginPage() {
   const router = useRouter();
-  const supabase = createClient();
+  const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const onSubmit = async (data: LoginFormValues) => {
-    setIsLoading(true);
-    
-    const { error } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
-    });
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-    if (error) {
-      toast.error('Login failed', { description: error.message });
-      setIsLoading(false);
-      return;
+    try {
+      const res = await fetch('/api/auth/student-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone.trim(), pin: pin.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.ok) {
+        router.replace('/student/dashboard');
+      } else {
+        setError(data.error || 'Invalid Phone Number or PIN. Please try again.');
+        setLoading(false);
+      }
+    } catch {
+      setError('Network error. Please check your connection and try again.');
+      setLoading(false);
     }
-
-    toast.success('Logged in successfully!');
-    router.push('/student/dashboard');
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Half - Decorative (Hidden on mobile) */}
-      <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-primary-600 via-primary-700 to-accent-purple p-12 flex-col justify-between overflow-hidden">
-        {/* Abstract circles */}
-        <div className="absolute -top-32 -left-32 w-96 h-96 bg-white/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 right-0 w-full h-full bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
-        
-        <div className="relative z-10">
-          <Logo size="lg" className="mb-16" />
-          
-          <h1 className="text-4xl font-bold text-white mb-6 leading-tight">
-            Welcome Back
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full bg-blue-600/8 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/3 w-[300px] h-[300px] rounded-full bg-indigo-500/6 blur-3xl pointer-events-none" />
+
+      <div className="relative w-full max-w-md">
+        {/* Logo / Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-500/15 border border-blue-500/30 mb-5 shadow-lg shadow-blue-500/10">
+            <Zap className="w-8 h-8 text-blue-400" />
+          </div>
+          <h1 className="text-3xl font-bold text-white tracking-tight mb-2">
+            StudentIQ <span className="text-blue-400">Exam Engine</span>
           </h1>
-          <p className="text-primary-100 text-lg mb-10 max-w-md leading-relaxed">
-            Access your personalized testing environment. Our NTA-identical interface ensures you are fully prepared for the real exam day.
+          <p className="text-slate-400 text-sm">
+            Log in with your Phone Number and 4-digit PIN
           </p>
-          
-          <div className="space-y-5">
-            {[
-              'Take chapter-wise mock tests',
-              'Track your progress over time',
-              'View detailed performance analytics'
-            ].map((text, i) => (
-              <div key={i} className="flex items-center text-white/90">
-                <CheckCircle2 className="w-5 h-5 text-accent-cyan-light mr-3 shrink-0" />
-                <span className="text-lg">{text}</span>
-              </div>
-            ))}
-          </div>
         </div>
-      </div>
 
-      {/* Right Half - Login Form */}
-      <div className="flex-1 flex flex-col justify-center px-4 sm:px-6 lg:px-20 bg-white relative">
-        <Link href="/" className="absolute top-8 left-6 lg:left-8 flex items-center text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
-          <ArrowLeft className="w-4 h-4 mr-2" /> Back to Home
-        </Link>
-
-        <div className="w-full max-w-md mx-auto mt-16 lg:mt-0">
-          <div className="lg:hidden mb-10 flex justify-center">
-            <Logo size="md" />
-          </div>
-
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">Login</h2>
-          <p className="text-slate-600 mb-8">Enter your credentials to access your portal.</p>
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <Input
-              label="Email Address"
-              placeholder="student@example.com"
-              type="email"
-              icon={<Mail className="w-5 h-5" />}
-              error={errors.email?.message}
-              {...register('email')}
-            />
-            
-            <Input
-              label="Password"
-              placeholder="••••••••"
-              type="password"
-              icon={<Lock className="w-5 h-5" />}
-              error={errors.password?.message}
-              {...register('password')}
-            />
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
+        {/* Card */}
+        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-8 shadow-2xl">
+          <form onSubmit={handleLogin} className="space-y-5">
+            {/* Phone Number */}
+            <div className="space-y-2">
+              <label htmlFor="phone" className="text-sm font-medium text-slate-300">
+                Phone Number
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 bg-white text-primary-600 focus:ring-primary-500 focus:ring-offset-white focus:ring-offset-2 transition-colors cursor-pointer"
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                  placeholder="e.g. 9876543210"
+                  required
+                  autoComplete="off"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/8 border border-white/10 text-white placeholder:text-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500/60 transition-all"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-600 cursor-pointer">
-                  Remember me
-                </label>
-              </div>
-
-              <div className="text-sm">
-                <a href="#" className="font-medium text-primary-600 hover:text-primary-500 transition-colors">
-                  Forgot your password?
-                </a>
               </div>
             </div>
 
-            <Button type="submit" variant="primary" size="lg" className="w-full" isLoading={isLoading}>
-              Sign In
-            </Button>
+            {/* PIN */}
+            <div className="space-y-2">
+              <label htmlFor="pin" className="text-sm font-medium text-slate-300">
+                4-Digit PIN
+              </label>
+              <div className="relative">
+                <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  id="pin"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="••••"
+                  required
+                  autoComplete="current-password"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/8 border border-white/10 text-white placeholder:text-slate-600 text-sm tracking-widest font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500/60 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Error */}
+            {error && (
+              <div className="flex items-start gap-2.5 rounded-xl bg-red-500/10 border border-red-500/25 px-4 py-3 text-sm text-red-400">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            {/* Submit */}
+            <button
+              id="student-login-btn"
+              type="submit"
+              disabled={loading || !phone || pin.length !== 4}
+              className="w-full flex items-center justify-center gap-2 py-3 px-6 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-600/25"
+            >
+              {loading ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Signing in…</>
+              ) : (
+                <>Enter Exam Dashboard <ArrowRight className="w-4 h-4" /></>
+              )}
+            </button>
           </form>
-          
-          <div className="mt-8 text-center text-sm text-slate-600">
-            Don't have an account? <Link href="/signup" className="font-medium text-primary-600 hover:text-primary-500">Create one</Link>
-          </div>
+
+          <p className="mt-6 text-center text-xs text-slate-600">
+            Your Phone Number and PIN were provided by your coaching center.
+          </p>
         </div>
       </div>
     </div>

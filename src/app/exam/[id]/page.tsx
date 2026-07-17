@@ -23,7 +23,7 @@ interface TestTemplate {
   exam_type: string;
   duration_minutes: number;
   total_marks: number;
-  question_ids: string[];
+  sections: Record<string, string[]>;
 }
 
 type QuestionStatus = 'not-visited' | 'not-answered' | 'answered' | 'marked-review' | 'answered-marked';
@@ -73,7 +73,7 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
   // Subject tabs
-  const subjects = [...new Set(questions.map(q => q.subject))];
+  const subjects = template ? Object.keys(template.sections) : [];
 
   // ===== RESOLVE PARAMS & LOAD =====
   useEffect(() => {
@@ -88,27 +88,27 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
   const loadTest = async (id: string) => {
     setIsLoading(true);
     try {
-      const { data: tmpl, error: tmplErr } = await supabase
-        .from('mock_test_templates')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (tmplErr || !tmpl) { setError('Test not found.'); return; }
+      const res = await fetch(`/api/student/exam/${id}`);
+      if (!res.ok) {
+        setError('Failed to load test. You might not have permission.');
+        return;
+      }
+      
+      const data = await res.json();
+      const tmpl = data.template;
+      const qs = data.questions;
+      
       setTemplate(tmpl);
       setTimeLeft(tmpl.duration_minutes * 60);
 
-      const { data: qs, error: qErr } = await supabase
-        .from('questions')
-        .select('id, question_text, options, marks, negative_marks, subject, image_url')
-        .in('id', tmpl.question_ids);
-
-      if (qErr || !qs) { setError('Could not load questions.'); return; }
-
-      // Preserve order from question_ids
-      const ordered = tmpl.question_ids
-        .map((qid: string) => qs.find((q: Question) => q.id === qid))
-        .filter(Boolean) as Question[];
+      // Preserve order from sections (group by subject, then by ID array)
+      const ordered: Question[] = [];
+      Object.keys(tmpl.sections).forEach(subject => {
+        tmpl.sections[subject].forEach((qid: string) => {
+          const q = qs.find((q: Question) => q.id === qid);
+          if (q) ordered.push(q);
+        });
+      });
 
       setQuestions(ordered);
 
@@ -118,6 +118,8 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
         initStatuses[q.id] = i === 0 ? 'not-answered' : 'not-visited';
       });
       setStatuses(initStatuses);
+    } catch (err) {
+      setError('An error occurred while loading the test.');
     } finally {
       setIsLoading(false);
     }
@@ -185,64 +187,24 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
     setIsSubmitting(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // Fetch correct answers to grade the test
-      const { data: correctData } = await supabase
-        .from('questions')
-        .select('id, correct_answer_index, marks, negative_marks')
-        .in('id', questions.map(q => q.id));
-
-      const correctMap: Record<string, { correct_answer_index: number; marks: number; negative_marks: number }> = {};
-      correctData?.forEach(q => { correctMap[q.id] = q; });
-
-      let totalScore = 0;
-      let correctCount = 0;
-      let incorrectCount = 0;
-      let unansweredCount = 0;
-
-      const responses = questions.map(q => {
-        const selected = answers[q.id];
-        const correct = correctMap[q.id];
-        let is_correct: boolean | null = null;
-
-        if (selected === undefined || selected === null) {
-          unansweredCount++;
-        } else if (correct && selected === correct.correct_answer_index) {
-          is_correct = true;
-          correctCount++;
-          totalScore += correct.marks || 4;
-        } else {
-          is_correct = false;
-          incorrectCount++;
-          totalScore -= correct?.negative_marks || 1;
-        }
-
-        return {
-          question_id: q.id,
-          selected_option: selected ?? null,
-          is_correct,
-          status: statuses[q.id] || 'not-visited',
-        };
+      const res = await fetch(`/api/student/exam/${testId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answers, statuses, timeLeft }),
       });
 
-      await supabase.from('test_attempts').insert({
-        student_id: user?.id,
-        test_template_id: testId,
-        responses,
-        total_score: totalScore,
-        correct_count: correctCount,
-        incorrect_count: incorrectCount,
-        unanswered_count: unansweredCount,
-        time_taken_seconds: (template?.duration_minutes || 0) * 60 - timeLeft,
-      });
+      if (!res.ok) {
+        throw new Error('Failed to submit exam');
+      }
 
       router.push(`/exam/${testId}/results`);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setIsSubmitting(false);
       setShowConfirmSubmit(false);
+      alert('Failed to submit the exam. Please check your connection and try again.');
     }
-  }, [answers, questions, statuses, showConfirmSubmit, testId, timeLeft, template, supabase, router]);
+  }, [showConfirmSubmit, answers, statuses, testId, router, timeLeft]);
 
   // ===== LOADING / ERROR =====
   if (isLoading) {

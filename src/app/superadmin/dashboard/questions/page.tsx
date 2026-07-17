@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { MathRenderer } from '@/components/ui/MathRenderer';
 import {
   ChevronRight, ChevronLeft, Save, RotateCcw,
-  Atom, FlaskConical, Calculator, Leaf, X, CheckCircle2, Eye, UploadCloud, PlusCircle, BarChart3
+  Atom, FlaskConical, Calculator, Leaf, X, CheckCircle2, Eye, UploadCloud, PlusCircle, BarChart3, Edit2, Trash2
 } from 'lucide-react';
 import { BulkUploader } from '@/components/admin/BulkUploader';
 import { useRouter } from 'next/navigation';
@@ -74,6 +74,9 @@ export default function AdminPage() {
   const [storedQuestions, setStoredQuestions] = useState<any[]>([]);
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [isBulkMode, setIsBulkMode] = useState(false);
+  
+  // Edit Question State
+  const [editingQuestion, setEditingQuestion] = useState<any | null>(null);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
 
@@ -133,7 +136,7 @@ export default function AdminPage() {
     setIsLoadingQuestions(true);
     const { data } = await supabase
       .from('questions')
-      .select('id, question_text, options, correct_answer_index, difficulty, year')
+      .select('id, question_text, options, correct_answer_index, difficulty, year, explanation, marks, negative_marks, image_url')
       .eq('exam_type', selectedExam)
       .eq('subject', selectedSubject)
       .eq('standard', selectedStandard)
@@ -141,6 +144,43 @@ export default function AdminPage() {
       .order('created_at', { ascending: false });
     if (data) setStoredQuestions(data);
     setIsLoadingQuestions(false);
+  };
+
+  // ==================== DELETE QUESTION ====================
+  const handleDeleteQuestion = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this question?')) return;
+    try {
+      const res = await fetch(`/api/superadmin/questions/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        toast.success('Question deleted successfully');
+        fetchStoredQuestions();
+      } else {
+        toast.error('Failed to delete question');
+      }
+    } catch (err) {
+      toast.error('An error occurred');
+    }
+  };
+
+  // ==================== PREPARE EDIT ====================
+  const startEditing = (q: any) => {
+    setEditingQuestion(q);
+    setQuestionText(q.question_text || '');
+    setOptions(q.options || ['', '', '', '']);
+    setCorrectIndex(q.correct_answer_index);
+    setExplanation(q.explanation || '');
+    setYear(q.year || '');
+    setDifficulty(q.difficulty || 'medium');
+    setMarks((q.marks || 4).toString());
+    setNegativeMarks((q.negative_marks || 1).toString());
+    setImagePreview(q.image_url || null);
+    setActiveTab('add');
+  };
+
+  const cancelEdit = () => {
+    setEditingQuestion(null);
+    resetForm();
+    setActiveTab('view');
   };
 
   // ==================== IMAGE HANDLER ====================
@@ -211,7 +251,7 @@ export default function AdminPage() {
       imageUrl = urlData.publicUrl;
     }
 
-    const { error } = await supabase.from('questions').insert({
+    const payload = {
       exam_type: selectedExam,
       standard: selectedStandard,
       subject: selectedSubject,
@@ -225,15 +265,36 @@ export default function AdminPage() {
       correct_answer_index: correctIndex,
       explanation: explanation || null,
       image_url: imageUrl,
-    });
+    };
 
-    if (error) {
-      toast.error('Failed to save question', { description: error.message });
+    if (editingQuestion) {
+      // UPDATE EXISTING
+      const res = await fetch(`/api/superadmin/questions/${editingQuestion.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        toast.success('Question updated successfully!');
+        setEditingQuestion(null);
+        resetForm();
+        setActiveTab('view');
+        fetchStoredQuestions();
+      } else {
+        toast.error('Failed to update question');
+      }
     } else {
-      setSavedCount(c => c + 1);
-      toast.success('Question saved! Add the next one.', { duration: 2000 });
-      resetForm();
+      // INSERT NEW
+      const { error } = await supabase.from('questions').insert(payload);
+      if (error) {
+        toast.error('Error saving question: ' + error.message);
+      } else {
+        toast.success('Question saved successfully!');
+        setSavedCount(c => c + 1);
+        resetForm();
+      }
     }
+    
     setIsSaving(false);
   };
 
@@ -387,13 +448,13 @@ export default function AdminPage() {
 
             {/* Tab Switcher */}
             <div className="flex gap-1 p-1 bg-slate-100 rounded-xl w-fit">
-              <button onClick={() => setActiveTab('add')}
+              <button onClick={() => { setActiveTab('add'); if(!editingQuestion) resetForm(); }}
                 className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'add' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                + Add Question
+                {editingQuestion ? '✏ Edit Question' : '+ Add Question'}
               </button>
-              <button onClick={() => { setActiveTab('view'); fetchStoredQuestions(); }}
+              <button onClick={() => { setActiveTab('view'); fetchStoredQuestions(); setEditingQuestion(null); }}
                 className={`px-5 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'view' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                📋 View Stored Questions
+                📋 View {storedQuestions.length > 0 ? `(${storedQuestions.length})` : ''}
               </button>
             </div>
 
@@ -411,15 +472,23 @@ export default function AdminPage() {
                   <div className="space-y-4">
                     <p className="text-sm text-slate-500 font-medium">{storedQuestions.length} question{storedQuestions.length !== 1 ? 's' : ''} stored in this chapter</p>
                     {storedQuestions.map((q, idx) => (
-                      <Card key={q.id} className="border-slate-200 bg-white">
+                      <Card key={q.id} className="border-slate-200 bg-white group">
                         <CardContent className="p-5">
                           <div className="flex items-start justify-between gap-4 mb-3">
-                            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">Q{idx + 1}</span>
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">Q{idx + 1}</span>
                               {q.year && <span className="text-xs text-slate-500 bg-slate-50 border border-slate-200 px-2 py-1 rounded">{q.year}</span>}
                               <span className={`text-xs font-medium px-2 py-1 rounded ${q.difficulty === 'hard' ? 'bg-rose-50 text-rose-700' : q.difficulty === 'medium' ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'}`}>
                                 {q.difficulty}
                               </span>
+                            </div>
+                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => startEditing(q)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleDeleteQuestion(q.id)} className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
                             </div>
                           </div>
                           <div className="text-sm text-slate-800 leading-relaxed mb-4">
@@ -575,11 +644,17 @@ export default function AdminPage() {
                 {/* Save Button */}
                 <div className="flex gap-4">
                   <Button variant="primary" size="lg" onClick={handleSave} isLoading={isSaving} className="flex-1 md:flex-none md:px-12">
-                    <Save className="w-4 h-4 mr-2" /> Save &amp; Add Next
+                    <Save className="w-4 h-4 mr-2" /> {editingQuestion ? 'Update Question' : 'Save & Add Next'}
                   </Button>
-                  <Button variant="outline" size="lg" onClick={resetForm}>
-                    <RotateCcw className="w-4 h-4 mr-2" /> Clear Form
-                  </Button>
+                  {editingQuestion ? (
+                    <Button variant="outline" size="lg" onClick={cancelEdit}>
+                      <X className="w-4 h-4 mr-2" /> Cancel Edit
+                    </Button>
+                  ) : (
+                    <Button variant="outline" size="lg" onClick={resetForm}>
+                      <RotateCcw className="w-4 h-4 mr-2" /> Clear Form
+                    </Button>
+                  )}
                 </div>
               </>
             )}

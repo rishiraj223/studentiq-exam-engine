@@ -54,11 +54,11 @@ export function Navbar() {
                 <Sparkles className="w-3.5 h-3.5" />
                 Request Demo
               </button>
-              <Link href="/signup">
-                <Button variant="secondary" size="sm">Sign Up</Button>
+              <Link href="/admin/login">
+                <Button variant="secondary" size="sm">Admin Login</Button>
               </Link>
               <Link href="/student/login">
-                <Button variant="primary" size="sm">Login</Button>
+                <Button variant="primary" size="sm">Student Login</Button>
               </Link>
             </div>
 

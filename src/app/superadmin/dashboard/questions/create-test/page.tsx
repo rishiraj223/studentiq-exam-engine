@@ -111,12 +111,18 @@ export default function CreateTestPage() {
     if (selectedIds.size === 0) { toast.error('Select at least one question'); return; }
     setIsGenerating(true);
     try {
-      const ids = [...selectedIds];
-      const totalMarks = questions
-        .filter(q => selectedIds.has(q.id))
-        .reduce((sum, q) => sum + (q.marks || 4), 0);
+      const selectedQuestions = questions.filter(q => selectedIds.has(q.id));
+      const sections: Record<string, string[]> = {};
+      let totalMarks = 0;
+
+      selectedQuestions.forEach(q => {
+        if (!sections[q.subject]) sections[q.subject] = [];
+        sections[q.subject].push(q.id);
+        totalMarks += (q.marks || 4);
+      });
 
       const code = generateCode();
+
       const { data: newTest, error } = await supabase
         .from('mock_test_templates')
         .insert({
@@ -124,7 +130,7 @@ export default function CreateTestPage() {
           exam_type: selectedExam,
           duration_minutes: EXAM_DURATION[selectedExam] || 180,
           total_marks: totalMarks,
-          question_ids: ids,
+          sections: sections,
           access_code: code,
         })
         .select('id')

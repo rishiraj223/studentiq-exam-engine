@@ -54,9 +54,14 @@ export default function Home() {
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center w-full sm:w-auto animate-slide-up" style={{ animationDelay: '300ms' }}>
+              <Link href="/admin/login" className="w-full sm:w-auto">
+                <Button variant="secondary" size="lg" className="w-full sm:w-auto text-lg px-8 border-slate-200 text-slate-700 bg-white hover:bg-slate-50">
+                  Admin Login
+                </Button>
+              </Link>
               <Link href="/student/login" className="w-full sm:w-auto">
-                <Button variant="primary" size="lg" className="w-full sm:w-auto text-lg px-10">
-                  Login <ArrowRight className="ml-2 w-5 h-5" />
+                <Button variant="primary" size="lg" className="w-full sm:w-auto text-lg px-8">
+                  Student Login <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
               <DemoRequestButton />
