@@ -97,6 +97,7 @@ export async function POST(req: NextRequest) {
         duration_minutes: durationMinutes || 60,
         total_marks: totalMarks,
         sections: sections,
+        created_by: session.student_id,  // ✅ FIX: stamp owner
       })
       .select('id')
       .single();

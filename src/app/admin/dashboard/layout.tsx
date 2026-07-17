@@ -57,18 +57,18 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
             Menu
           </div>
           <nav className="space-y-1">
-            <Link href="/admin/dashboard" className="flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl bg-blue-50 text-blue-700">
-              <LayoutDashboard className="w-5 h-5 mr-3 text-blue-600" />
+            <Link href="/admin/dashboard" className={`flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${typeof window !== 'undefined' && window.location.pathname === '/admin/dashboard' ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-600'}`}>
+              <LayoutDashboard className={`w-5 h-5 mr-3 ${typeof window !== 'undefined' && window.location.pathname === '/admin/dashboard' ? 'text-blue-600' : 'text-slate-400'}`} />
               Dashboard
             </Link>
-            <button disabled className="w-full flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed text-left">
-              <Users className="w-5 h-5 mr-3 text-slate-400" />
-              My Students (Coming Soon)
-            </button>
-            <button disabled className="w-full flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed text-left">
-              <FileText className="w-5 h-5 mr-3 text-slate-400" />
-              Question Bank (Coming Soon)
-            </button>
+            <Link href="/admin/dashboard/students" className={`flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/dashboard/students') ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-600'}`}>
+              <Users className={`w-5 h-5 mr-3 ${typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/dashboard/students') ? 'text-blue-600' : 'text-slate-400'}`} />
+              My Students
+            </Link>
+            <Link href="/admin/dashboard/assigned-tests" className={`flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/dashboard/assigned-tests') ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-600'}`}>
+              <FileText className={`w-5 h-5 mr-3 ${typeof window !== 'undefined' && window.location.pathname.startsWith('/admin/dashboard/assigned-tests') ? 'text-blue-600' : 'text-slate-400'}`} />
+              Assigned Tests
+            </Link>
             <button disabled className="w-full flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed text-left">
               <Settings className="w-5 h-5 mr-3 text-slate-400" />
               Settings

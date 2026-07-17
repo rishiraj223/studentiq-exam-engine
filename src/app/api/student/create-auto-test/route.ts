@@ -163,6 +163,7 @@ export async function POST(req: NextRequest) {
         duration_minutes: EXAM_DURATION[examType] || 180,
         total_marks: totalMarks,
         sections: sections,
+        created_by: session.student_id,  // ✅ FIX: stamp owner
       })
       .select('id')
       .single();

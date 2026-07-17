@@ -7,15 +7,15 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ t
     if (!sessionCookie) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const session = JSON.parse(sessionCookie);
-    if (!session || !session.student_id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!session?.student_id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { testId } = await params;
     const admin = createAdminClient();
 
-    // 1. Verify if the test exists
+    // 1. Verify test exists AND belongs to this student
     const { data: testTemplate, error: testError } = await admin
       .from('mock_test_templates')
-      .select('id')
+      .select('id, created_by')
       .eq('id', testId)
       .single();
 
@@ -23,15 +23,21 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ t
       return NextResponse.json({ error: 'Test not found' }, { status: 404 });
     }
 
-    // 2. Verify it is unattempted by this specific student (or globally since templates are 1:1 right now)
-    const { data: attempt, error: attemptError } = await admin
+    // ✅ FIX: Security check — only the creator can delete their own test
+    if (testTemplate.created_by && testTemplate.created_by !== session.student_id) {
+      return NextResponse.json({ error: 'You do not have permission to delete this test' }, { status: 403 });
+    }
+
+    // 2. Verify it's unattempted by this specific student
+    const { data: attempt } = await admin
       .from('test_attempts')
       .select('id')
       .eq('test_template_id', testId)
-      .single();
+      .eq('student_id', session.student_id)
+      .maybeSingle();
 
     if (attempt) {
-      return NextResponse.json({ error: 'Cannot delete an attempted test' }, { status: 400 });
+      return NextResponse.json({ error: 'Cannot delete a test you have already attempted' }, { status: 400 });
     }
 
     // 3. Delete it safely
