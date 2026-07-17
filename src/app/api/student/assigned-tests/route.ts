@@ -3,10 +3,12 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(req: NextRequest) {
   try {
-    const sessionCookie = req.cookies.get('exam_session')?.value;
-    if (!sessionCookie) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // ✅ Use the correct cookie name set by student-login and student-sso
+    const sessionCookie = req.cookies.get('exam_student_session')?.value;
+    if (!sessionCookie) return NextResponse.json({ assignments: [] });
 
-    const session = JSON.parse(decodeURIComponent(sessionCookie));
+    const session = JSON.parse(sessionCookie);
+    // ✅ The coaching_center_id field from the student session cookie
     const coachingId = session.coaching_center_id;
     const studentId = session.student_id;
 
@@ -14,16 +16,16 @@ export async function GET(req: NextRequest) {
 
     const admin = createAdminClient();
 
-    // 1. Fetch assigned tests for this coaching
+    // 1. Fetch all assigned tests for this specific coaching center
     const { data: tests, error } = await admin
       .from('mock_test_templates')
-      .select('id, name, exam_type, total_marks, duration_minutes, due_date')
+      .select('id, name, exam_type, total_marks, duration_minutes, due_date, created_at')
       .eq('test_mode', 'assigned')
       .eq('coaching_id', coachingId)
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Assigned fetch error:', error);
+      console.error('Assigned tests fetch error:', error);
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
@@ -31,7 +33,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ assignments: [] });
     }
 
-    // 2. Fetch attempts to see what is completed
+    // 2. Fetch this student's attempts to mark completed tests
     const testIds = tests.map(t => t.id);
     const { data: attempts } = await admin
       .from('test_attempts')
@@ -46,7 +48,7 @@ export async function GET(req: NextRequest) {
       isCompleted: completedSet.has(t.id)
     }));
 
-    // Sort pending first, then by due date
+    // Sort: pending first, then soonest due date first
     assignments.sort((a, b) => {
       if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
       if (a.due_date && b.due_date) {

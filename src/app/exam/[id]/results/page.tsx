@@ -11,6 +11,7 @@ export default function ExamResultsPage({ params }: { params: Promise<{ id: stri
   const [testId, setTestId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [results, setResults] = useState<any>(null);
+  const [leaderboard, setLeaderboard] = useState<any[]>([]);
 
   useEffect(() => {
     params.then(p => setTestId(p.id));
@@ -21,15 +22,36 @@ export default function ExamResultsPage({ params }: { params: Promise<{ id: stri
     
     const fetchResults = async () => {
       try {
-        const res = await fetch('/api/student/dashboard-data');
+        const [res, lbRes] = await Promise.all([
+          fetch('/api/student/dashboard-data'),
+          fetch(`/api/student/leaderboard/${testId}`)
+        ]);
+        
         if (!res.ok) throw new Error('Failed to load results');
         const data = await res.json();
         
+        let lbData = [];
+        if (lbRes.ok) {
+          const json = await lbRes.json();
+          lbData = json.leaderboard || [];
+        }
+        
         const attempt = (data.attempts || []).find((a: any) => a.test_template_id === testId);
-        const test = (data.tests || []).find((t: any) => t.id === testId);
+        
+        // Try to find the test in assigned tests first, then generic tests
+        let test = null;
+        const assignRes = await fetch('/api/student/assigned-tests');
+        if (assignRes.ok) {
+          const assignData = await assignRes.json();
+          test = (assignData.assignments || []).find((t: any) => t.id === testId);
+        }
+        if (!test) {
+          test = (data.tests || []).find((t: any) => t.id === testId);
+        }
         
         if (attempt && test) {
           setResults({ attempt, test });
+          setLeaderboard(lbData);
         }
       } catch (err) {
         console.error(err);
@@ -121,6 +143,51 @@ export default function ExamResultsPage({ params }: { params: Promise<{ id: stri
             </div>
           </CardContent>
         </Card>
+
+        {/* LEADERBOARD SECTION */}
+        {leaderboard && leaderboard.length > 0 && (
+          <Card className="overflow-hidden border-0 shadow-xl shadow-blue-900/5 mt-8">
+            <div className="bg-white p-6 border-b border-slate-100 flex items-center gap-3">
+              <Award className="w-6 h-6 text-amber-500" />
+              <h2 className="text-xl font-bold text-slate-900">Class Leaderboard</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider text-xs">
+                  <tr>
+                    <th className="px-6 py-4">Rank</th>
+                    <th className="px-6 py-4">Student</th>
+                    <th className="px-6 py-4 text-right">Score</th>
+                    <th className="px-6 py-4 text-center">Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {leaderboard.map((student: any, i: number) => {
+                    const isMe = student.id === attempt.id;
+                    return (
+                      <tr key={student.id} className={isMe ? 'bg-blue-50/50' : 'hover:bg-slate-50'}>
+                        <td className="px-6 py-4 font-bold text-slate-900">
+                          {i + 1}
+                          {i === 0 && <span className="ml-2">🥇</span>}
+                          {i === 1 && <span className="ml-2">🥈</span>}
+                          {i === 2 && <span className="ml-2">🥉</span>}
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-slate-800">
+                          {student.student_name || 'Unknown'} {isMe && <span className="ml-2 text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">YOU</span>}
+                        </td>
+                        <td className="px-6 py-4 text-right font-black text-emerald-600">{student.total_score}</td>
+                        <td className="px-6 py-4 text-center text-slate-500 font-medium">
+                          {Math.floor(student.time_taken_seconds / 60)}m {student.time_taken_seconds % 60}s
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
+
       </div>
     </div>
   );

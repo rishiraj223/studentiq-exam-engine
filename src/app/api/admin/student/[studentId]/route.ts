@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
 
     const { studentId } = await params;
 
-    // 1. Fetch Student from CRM (to ensure they belong to this coaching)
+    // 1. Fetch Student from CRM (live, fresh data — reflects any edits made in the old site)
     const coachingUrl = process.env.COACHING_SUPABASE_URL!;
     const coachingKey = process.env.COACHING_SUPABASE_SERVICE_ROLE_KEY!;
     const { createClient } = await import('@supabase/supabase-js');
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
 
     const { data: student, error: studentErr } = await coachingAdmin
       .from('students')
-      .select('id, name, roll_no, batch, standard, coaching_center_id')
+      .select('id, name, roll_no, batch, standard, parent_phone, coaching_center_id')
       .eq('id', studentId)
       .single();
 
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
 
     const examAdmin = createAdminClient();
 
-    // 2. Fetch History
+    // 2. Fetch All Test Attempts
     const { data: attempts } = await examAdmin
       .from('test_attempts')
       .select(`
@@ -39,6 +39,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
         total_score,
         correct_count,
         incorrect_count,
+        unanswered_count,
         time_taken_seconds,
         created_at,
         responses,
@@ -49,10 +50,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
       .eq('student_id', studentId)
       .order('created_at', { ascending: false });
 
-    const history = [];
+    // 3. Build History + aggregate stats
+    const history: any[] = [];
     let totalScorePercent = 0;
-    
-    // For analytics
+    let totalCorrect = 0;
+    let totalIncorrect = 0;
+    let totalUnanswered = 0;
+    let bestScore = 0;
+    let assignedCompleted = 0;
     const allQuestionIds = new Set<string>();
     const responsesList: any[] = [];
 
@@ -61,21 +66,29 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
         const tmpl = att.mock_test_templates as any;
         const maxMarks = tmpl?.total_marks || 1;
         const scorePercent = Math.round(Math.max(0, att.total_score) / maxMarks * 100);
+
         totalScorePercent += scorePercent;
-        
+        totalCorrect += att.correct_count || 0;
+        totalIncorrect += att.incorrect_count || 0;
+        totalUnanswered += att.unanswered_count || 0;
+        if (scorePercent > bestScore) bestScore = scorePercent;
+        if (tmpl?.test_mode === 'assigned') assignedCompleted++;
+
         history.push({
           id: att.id,
           testName: tmpl?.name || 'Unknown',
           examType: tmpl?.exam_type || '',
+          totalScore: att.total_score,
+          totalMarks: maxMarks,
           scorePercent,
           correctCount: att.correct_count,
           incorrectCount: att.incorrect_count,
+          unansweredCount: att.unanswered_count || 0,
           timeTakenSeconds: att.time_taken_seconds,
           date: att.created_at,
-          isAssigned: tmpl?.test_mode === 'assigned'
+          isAssigned: tmpl?.test_mode === 'assigned',
         });
 
-        // Collect questions for analytics
         const res = att.responses as Array<{ question_id: string; is_correct: boolean | null }>;
         if (res) {
           responsesList.push(...res);
@@ -84,11 +97,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
       }
     }
 
-    // 3. Analytics Engine
-    let strongestSubject = null;
-    let weakestSubject = null;
+    // 4. Subject Analytics Engine
+    let strongestSubject: string | null = null;
+    let weakestSubject: string | null = null;
     const subjectMap: Record<string, { correct: number; incorrect: number }> = {};
-    
+
     if (allQuestionIds.size > 0) {
       const { data: questions } = await examAdmin
         .from('questions')
@@ -103,7 +116,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
           const subj = qMap[r.question_id];
           if (!subj) return;
           if (!subjectMap[subj]) subjectMap[subj] = { correct: 0, incorrect: 0 };
-          
           if (r.is_correct === true) subjectMap[subj].correct++;
           else if (r.is_correct === false) subjectMap[subj].incorrect++;
         });
@@ -134,9 +146,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ stud
         weakestSubject,
         subjectStats: Object.entries(subjectMap).map(([subj, counts]) => ({
           subject: subj,
-          accuracy: (counts.correct + counts.incorrect) > 0 ? Math.round((counts.correct / (counts.correct + counts.incorrect)) * 100) : 0
-        }))
-      }
+          accuracy: (counts.correct + counts.incorrect) > 0
+            ? Math.round((counts.correct / (counts.correct + counts.incorrect)) * 100)
+            : 0,
+          correct: counts.correct,
+          incorrect: counts.incorrect,
+        })),
+        totalCorrect,
+        totalIncorrect,
+        totalUnanswered,
+        bestScore,
+        assignedCompleted,
+      },
     });
   } catch (err) {
     console.error('Admin Student Detail error:', err);

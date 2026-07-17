@@ -262,26 +262,43 @@ export default function StudentDashboardPage() {
             <Bell className="w-4 h-4 text-indigo-500" /> Action Required
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {assignedTests.filter(t => !t.isCompleted).map(test => (
+            {assignedTests.map(test => {
+              const isExpired = test.due_date && new Date(test.due_date).getTime() < Date.now();
+              
+              return (
               <div key={test.id} className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden shadow-sm">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none"></div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full uppercase tracking-wider">Assigned Test</span>
                     <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded-full border border-slate-200">{test.exam_type}</span>
+                    {isExpired && !test.isCompleted && (
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full uppercase tracking-wider">Expired</span>
+                    )}
                   </div>
                   <h3 className="font-bold text-slate-900">{test.name}</h3>
                   <div className="flex items-center gap-3 text-xs text-slate-600 mt-1">
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {test.duration_minutes}m</span>
                     <span className="flex items-center gap-1"><Zap className="w-3 h-3" /> {test.total_marks} marks</span>
-                    {test.due_date && <span className="flex items-center gap-1 text-rose-600 font-semibold"><Calendar className="w-3 h-3" /> Due {new Date(test.due_date).toLocaleDateString()}</span>}
+                    {test.due_date && <span className={`flex items-center gap-1 font-semibold ${isExpired ? 'text-rose-600' : 'text-emerald-600'}`}><Calendar className="w-3 h-3" /> Due {new Date(test.due_date).toLocaleDateString()}</span>}
                   </div>
                 </div>
-                <button onClick={() => router.push(`/exam/${test.id}`)} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm shadow-indigo-200 transition-all shrink-0">
-                  Start Test
-                </button>
+                
+                {test.isCompleted ? (
+                  <button onClick={() => router.push(`/exam/${test.id}/results`)} className="px-5 py-2.5 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 font-bold rounded-xl shadow-sm transition-all shrink-0 flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> View Results
+                  </button>
+                ) : isExpired ? (
+                  <button disabled className="px-5 py-2.5 bg-slate-100 text-slate-400 font-bold rounded-xl shadow-sm transition-all shrink-0 cursor-not-allowed border border-slate-200">
+                    Expired
+                  </button>
+                ) : (
+                  <button onClick={() => router.push(`/exam/${test.id}`)} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm shadow-indigo-200 transition-all shrink-0">
+                    Start Test
+                  </button>
+                )}
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}

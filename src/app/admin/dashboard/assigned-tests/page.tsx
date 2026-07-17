@@ -23,7 +23,7 @@ export default function AdminAssignedTestsPage() {
   const [isCreating, setIsCreating] = useState(false);
   
   // Form State
-  const [form, setForm] = useState({ name: '', examType: 'JEE Main', subject: 'Physics', duration: 60, questions: 30, dueDate: '' });
+  const [form, setForm] = useState({ name: '', examType: 'JEE Main', subject: 'Physics', duration: 60 as number | string, questions: 30 as number | string, dueDate: '' });
 
   const fetchTests = async () => {
     try {
@@ -96,7 +96,7 @@ export default function AdminAssignedTestsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {tests.map(test => (
-            <div key={test.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-300 transition-all cursor-pointer">
+            <div key={test.id} onClick={() => router.push(`/admin/dashboard/assigned-tests/${test.id}/analytics`)} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:border-blue-300 transition-all cursor-pointer">
               <div className="flex justify-between items-start mb-3">
                 <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600">{test.exam_type}</span>
                 {test.due_date && <span className="flex items-center text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full"><Calendar className="w-3 h-3 mr-1"/> Due: {new Date(test.due_date).toLocaleDateString()}</span>}
@@ -124,51 +124,35 @@ export default function AdminAssignedTestsPage() {
               <h2 className="font-bold text-slate-900 text-lg">Assign New Test</h2>
               <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl font-bold">&times;</button>
             </div>
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">Test Name</label>
-                <input required type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Weekly Physics Mock Test 1" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Exam Type</label>
-                  <select value={form.examType} onChange={e => setForm({...form, examType: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                    <option value="JEE Main">JEE Main</option>
-                    <option value="NEET">NEET</option>
-                    <option value="MHT-CET">MHT-CET</option>
-                  </select>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-slate-500 mb-4">Choose how you want to create your test. You can either use our verified global question bank or write your own custom questions.</p>
+              
+              <div 
+                onClick={() => router.push('/admin/dashboard/assigned-tests/premade')}
+                className="p-5 border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 rounded-2xl cursor-pointer transition-all flex items-start gap-4"
+              >
+                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                  <span className="text-2xl">🌍</span>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Subject</label>
-                  <select value={form.subject} onChange={e => setForm({...form, subject: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none bg-white">
-                    <option value="Physics">Physics</option>
-                    <option value="Chemistry">Chemistry</option>
-                    <option value="Mathematics">Mathematics</option>
-                    <option value="Biology">Biology</option>
-                  </select>
+                  <h3 className="font-bold text-slate-900 text-lg">Premade Test (Global Bank)</h3>
+                  <p className="text-xs text-slate-500 mt-1">Select specific chapters and manually hand-pick questions from our verified global database.</p>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Questions Count</label>
-                  <input required type="number" min="5" max="100" value={form.questions} onChange={e => setForm({...form, questions: parseInt(e.target.value)})} className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" />
+
+              <div 
+                onClick={() => router.push('/admin/dashboard/assigned-tests/custom')}
+                className="p-5 border-2 border-slate-200 hover:border-emerald-500 hover:bg-emerald-50 rounded-2xl cursor-pointer transition-all flex items-start gap-4"
+              >
+                <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+                  <span className="text-2xl">📝</span>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1.5">Duration (Mins)</label>
-                  <input required type="number" min="10" max="180" value={form.duration} onChange={e => setForm({...form, duration: parseInt(e.target.value)})} className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" />
+                  <h3 className="font-bold text-slate-900 text-lg">Custom Test (Manual Entry)</h3>
+                  <p className="text-xs text-slate-500 mt-1">Type your own proprietary questions, upload images, and set custom marks from scratch.</p>
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">Due Date (Optional)</label>
-                <input type="datetime-local" value={form.dueDate} onChange={e => setForm({...form, dueDate: e.target.value})} className="w-full px-4 py-2 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-slate-700" />
-              </div>
-              <div className="pt-4 border-t border-slate-100 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-50 rounded-xl transition-colors">Cancel</button>
-                <button type="submit" disabled={isCreating} className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition-colors disabled:opacity-50">
-                  {isCreating ? 'Creating...' : 'Create & Assign'}
-                </button>
-              </div>
-            </form>
+            </div>
           </div>
         </div>
       )}
