@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { NotificationService } from '@/lib/notifications';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ testId: string }> }) {
   try {
@@ -159,6 +160,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tes
       console.error('Submit error:', insertError);
       return NextResponse.json({ error: 'Failed to submit exam' }, { status: 500 });
     }
+
+    // Trigger Asynchronous Auto-Report to Parents
+    NotificationService.sendTestReport(
+      session.student_id, 
+      testId, 
+      session.name, 
+      { totalScore, correctCount, incorrectCount }
+    );
 
     return NextResponse.json({ ok: true });
   } catch (error) {

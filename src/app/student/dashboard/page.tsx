@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
-import { Play, Clock, Award, FileText, X, Loader2, Zap, Globe, BookOpen, Settings2, BarChart3, Trash2, ChevronLeft, CheckCircle2, Bell, Calendar } from 'lucide-react';
+import { Play, Clock, Award, FileText, X, Loader2, Zap, Globe, BookOpen, Settings2, BarChart3, Trash2, ChevronLeft, CheckCircle2, Bell, Calendar, Sparkles } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
@@ -75,6 +75,7 @@ export default function StudentDashboardPage() {
   const [attempts, setAttempts] = useState<Record<string, TestAttempt>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [quickStats, setQuickStats] = useState({ totalTests: 0, avgScorePercent: 0, accuracyPercent: 0 });
+  const [recommendations, setRecommendations] = useState<string[]>([]);
 
   // Modal states
   const [showFullMockModal, setShowFullMockModal] = useState(false);
@@ -162,6 +163,14 @@ export default function StudentDashboardPage() {
         const assignData = await assignRes.json();
         setAssignedTests(assignData.assignments || []);
       }
+
+      // Fetch AI Recommendations
+      fetch('/api/student/ai?action=recommendations')
+        .then(r => r.json())
+        .then(aiData => {
+          if (aiData.recommendations) setRecommendations(aiData.recommendations);
+        })
+        .catch(() => {});
     } catch (err) {
       console.error(err);
     }
@@ -345,6 +354,30 @@ export default function StudentDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ===== AI RECOMMENDATIONS ===== */}
+      {recommendations.length > 0 && (
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl p-6 sm:p-8 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-6">
+          <div>
+            <div className="flex items-center gap-2 mb-2 opacity-90">
+              <Sparkles className="w-5 h-5" />
+              <span className="text-sm font-bold uppercase tracking-wider">AI Insight</span>
+            </div>
+            <h2 className="text-2xl font-black mb-2">What to Study Next</h2>
+            <p className="text-indigo-100 text-sm max-w-xl leading-relaxed">
+              Based on your recent test mistakes, focusing on these 3 chapters will maximize your score improvement.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 w-full md:w-auto shrink-0">
+            {recommendations.map((chap, idx) => (
+              <div key={idx} className="bg-white/10 border border-white/20 rounded-xl px-4 py-2 font-bold text-sm flex items-center gap-3 backdrop-blur-sm">
+                <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs">{idx + 1}</div>
+                {chap}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ===== TEST CATEGORIES (GENERATE NEW TESTS) ===== */}
       <div>

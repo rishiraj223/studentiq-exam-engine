@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
-import { LayoutDashboard, Users, FileText, Settings, LogOut, Loader2 } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Settings, LogOut, Loader2, Printer, BarChart2, Activity } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboardLayout({ children }: { children: React.ReactNode }) {
@@ -69,6 +69,18 @@ export default function AdminDashboardLayout({ children }: { children: React.Rea
             <Link href="/admin/dashboard/assigned-tests" className={`flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${pathname?.startsWith('/admin/dashboard/assigned-tests') ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-600'}`}>
               <FileText className={`w-5 h-5 mr-3 ${pathname?.startsWith('/admin/dashboard/assigned-tests') ? 'text-blue-600' : 'text-slate-400'}`} />
               Assigned Tests
+            </Link>
+            <Link href="/admin/dashboard/analytics" className={`flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${pathname?.startsWith('/admin/dashboard/analytics') ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-600'}`}>
+              <BarChart2 className={`w-5 h-5 mr-3 ${pathname?.startsWith('/admin/dashboard/analytics') ? 'text-blue-600' : 'text-slate-400'}`} />
+              Advanced Analytics
+            </Link>
+            <Link href="/admin/dashboard/live-monitor" className={`flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${pathname?.startsWith('/admin/dashboard/live-monitor') ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-600'}`}>
+              <Activity className={`w-5 h-5 mr-3 ${pathname?.startsWith('/admin/dashboard/live-monitor') ? 'text-blue-600' : 'text-slate-400'}`} />
+              Live Monitor
+            </Link>
+            <Link href="/admin/dashboard/offline-test" className={`flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl transition-colors ${pathname?.startsWith('/admin/dashboard/offline-test') ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-600'}`}>
+              <Printer className={`w-5 h-5 mr-3 ${pathname?.startsWith('/admin/dashboard/offline-test') ? 'text-blue-600' : 'text-slate-400'}`} />
+              Offline Tests
             </Link>
             <button disabled className="w-full flex items-center px-3 py-2.5 text-sm font-semibold rounded-xl text-slate-500 hover:bg-slate-50 transition-colors opacity-50 cursor-not-allowed text-left">
               <Settings className="w-5 h-5 mr-3 text-slate-400" />

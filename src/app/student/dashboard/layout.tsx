@@ -3,12 +3,14 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Logo } from '@/components/ui/Logo';
-import { LogOut, LayoutDashboard, ClockIcon, BarChart2 } from 'lucide-react';
+import { LogOut, LayoutDashboard, ClockIcon, BarChart2, BrainCircuit } from 'lucide-react';
+import { DoubtChatbot } from '@/components/student/DoubtChatbot';
 
 const NAV_ITEMS = [
   { href: '/student/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/student/dashboard/history', label: 'My Tests', icon: ClockIcon },
   { href: '/student/dashboard/analytics', label: 'Analytics', icon: BarChart2 },
+  { href: '/student/dashboard/ai-planner', label: 'AI Planner', icon: BrainCircuit },
 ];
 
 export default function StudentDashboardLayout({ children }: { children: React.ReactNode }) {
@@ -117,6 +119,9 @@ export default function StudentDashboardLayout({ children }: { children: React.R
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
+
+      {/* Global AI Chatbot */}
+      <DoubtChatbot />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Upload, X, Check, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Upload, X, Check, Image as ImageIcon, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/browser';
 
@@ -68,6 +68,8 @@ export default function CustomTestCreator() {
   const supabase = createClient();
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isAiParsing, setIsAiParsing] = useState(false);
 
   // Structural State
   const [testName, setTestName] = useState('');
@@ -113,6 +115,33 @@ export default function CustomTestCreator() {
 
     setQuestions(newQuestions);
     setStep(2);
+  };
+
+  const handleAiParse = async () => {
+    if (!aiPrompt.trim()) return;
+    setIsAiParsing(true);
+    try {
+      const res = await fetch('/api/admin/ai/parse-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: aiPrompt })
+      });
+      const data = await res.json();
+      if (res.ok && data.params) {
+        const { subject, difficulty, numQuestions } = data.params;
+        setSubjectCounts({
+          'Physics': 0, 'Chemistry': 0, 'Mathematics': 0, 'Biology': 0,
+          [subject]: numQuestions
+        });
+        toast.success(`AI Extracted: ${numQuestions} Qs of ${subject} (${difficulty})`);
+      } else {
+        toast.error('AI failed to parse request');
+      }
+    } catch (e) {
+      toast.error('Network error during AI parse');
+    } finally {
+      setIsAiParsing(false);
+    }
   };
 
   // Image Upload Handler
@@ -212,7 +241,32 @@ export default function CustomTestCreator() {
 
       {step === 1 && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6 max-w-2xl">
-          <div>
+          
+          {/* AI Generation Box */}
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-5 border border-indigo-100">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-5 h-5 text-indigo-600" />
+              <h3 className="font-bold text-indigo-900">Generate Structure with AI</h3>
+            </div>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                placeholder="e.g. Create a 30 question hard Physics test..." 
+                className="flex-1 px-4 py-3 rounded-xl border border-indigo-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm" 
+              />
+              <button 
+                onClick={handleAiParse}
+                disabled={!aiPrompt.trim() || isAiParsing}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition disabled:opacity-50 whitespace-nowrap flex items-center gap-2"
+              >
+                {isAiParsing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Magic Fill'}
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-2 border-t border-slate-100">
             <label className="block text-sm font-bold text-slate-700 mb-2">Test Name</label>
             <input type="text" value={testName} onChange={e => setTestName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Weekly Full Mock 1" />
           </div>

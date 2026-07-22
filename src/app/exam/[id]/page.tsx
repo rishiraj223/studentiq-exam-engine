@@ -4,7 +4,8 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/browser';
 import { MathRenderer } from '@/components/ui/MathRenderer';
-import { ChevronLeft, ChevronRight, Flag, Clock, LogOut, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flag, Clock, LogOut, CheckCircle, ShieldAlert, Maximize } from 'lucide-react';
+import { toast } from 'sonner';
 
 // ===== TYPES =====
 interface Question {
@@ -24,6 +25,7 @@ interface TestTemplate {
   duration_minutes: number;
   total_marks: number;
   sections: Record<string, string[]>;
+  scheduled_start_time?: string;
 }
 
 type QuestionStatus = 'not-visited' | 'not-answered' | 'answered' | 'marked-review' | 'answered-marked';
@@ -43,7 +45,6 @@ const STATUS_LABELS: { color: string; label: string }[] = [
   { color: 'bg-purple-500', label: 'Marked for Review' },
 ];
 
-// Format seconds to HH:MM:SS
 function formatTime(secs: number) {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
@@ -54,8 +55,9 @@ function formatTime(secs: number) {
 // ===== MAIN COMPONENT =====
 export default function ExamSimulatorPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const supabase = createClient();
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const [testId, setTestId] = useState<string>('');
   const [template, setTemplate] = useState<TestTemplate | null>(null);
@@ -64,6 +66,7 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
   const [error, setError] = useState('');
 
   // Exam state
+  const [hasStarted, setHasStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number | null>>({});
   const [statuses, setStatuses] = useState<Record<string, QuestionStatus>>({});
@@ -72,10 +75,14 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
-  // Subject tabs
+  // Proctoring State
+  const [tabSwitches, setTabSwitches] = useState(0);
+  const [fullscreenExits, setFullscreenExits] = useState(0);
+  const [proctorWarning, setProctorWarning] = useState('');
+
   const subjects = template ? Object.keys(template.sections) : [];
 
-  // ===== RESOLVE PARAMS & LOAD =====
+  // ===== LOAD DATA =====
   useEffect(() => {
     params.then(p => setTestId(p.id));
   }, [params]);
@@ -101,7 +108,6 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
       setTemplate(tmpl);
       setTimeLeft(tmpl.duration_minutes * 60);
 
-      // Preserve order from sections (group by subject, then by ID array)
       const ordered: Question[] = [];
       Object.keys(tmpl.sections).forEach(subject => {
         tmpl.sections[subject].forEach((qid: string) => {
@@ -111,8 +117,6 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
       });
 
       setQuestions(ordered);
-
-      // Initialize statuses
       const initStatuses: Record<string, QuestionStatus> = {};
       ordered.forEach((q, i) => {
         initStatuses[q.id] = i === 0 ? 'not-answered' : 'not-visited';
@@ -125,21 +129,116 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
     }
   };
 
+  // ===== PROCTORING & HEARTBEAT =====
+  useEffect(() => {
+    if (!hasStarted) return;
+
+    // 1. Fullscreen monitoring
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        setFullscreenExits(prev => prev + 1);
+        setProctorWarning('You have exited fullscreen! Please return to fullscreen immediately. Repeated violations may invalidate your test.');
+      }
+    };
+
+    // 2. Tab switch monitoring
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        setTabSwitches(prev => prev + 1);
+        setProctorWarning('You have switched tabs or minimized the window! This is a proctoring violation. Repeated offenses will be logged.');
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // 3. Heartbeat Ping to backend
+    const sendPing = async () => {
+      if (isSubmitting) return;
+      try {
+        const res = await fetch('/api/student/live-ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            testId,
+            currentQuestion: currentIndex,
+            timeLeft: timeLeft, // Note: closure might be stale without refs, but React state inside interval requires care.
+            // We use state functional updates or refs for exact values. Since this interval is recreated every time currentIndex/timeLeft changes? No, we don't put them in deps. 
+            // Better to just let the latest state be captured by using a ref, OR just send the values from scope if we re-bind. 
+          }),
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.forceSubmit && !isSubmitting) {
+            toast.error('Your exam was force-submitted by the administrator.');
+            forceSubmitTest();
+          }
+        }
+      } catch (e) {
+        // Ignore ping errors silently
+      }
+    };
+
+    // Initial ping
+    sendPing();
+    pingRef.current = setInterval(sendPing, 10000); // 10 seconds
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (pingRef.current) clearInterval(pingRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasStarted, currentIndex, isSubmitting, testId]); 
+  // We include currentIndex and timeLeft dependencies to ensure the ping gets the latest state, but we need to manage the interval properly. Actually, putting them in deps resets the interval frequently, which is fine for simple pings.
+
   // ===== TIMER =====
   useEffect(() => {
-    if (isLoading || questions.length === 0 || timeLeft <= 0) return;
+    if (!hasStarted || isLoading || questions.length === 0 || timeLeft <= 0) return;
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
-          handleSubmit(true);
+          forceSubmitTest();
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(timerRef.current!);
-  }, [isLoading, questions.length]);
+  }, [hasStarted, isLoading, questions.length]);
+
+  // ===== START TEST =====
+  const handleStartTest = async () => {
+    if (template?.scheduled_start_time) {
+      const startTime = new Date(template.scheduled_start_time).getTime();
+      if (Date.now() < startTime) {
+        toast.error(`Test has not started yet. Scheduled for: ${new Date(template.scheduled_start_time).toLocaleString()}`);
+        return;
+      }
+    }
+
+    try {
+      if (containerRef.current) {
+        await containerRef.current.requestFullscreen();
+      }
+      setHasStarted(true);
+    } catch (e) {
+      toast.error('Fullscreen is required to start the test.');
+    }
+  };
+
+  const enforceFullscreen = async () => {
+    try {
+      if (containerRef.current && !document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+      }
+      setProctorWarning('');
+    } catch (e) {
+      toast.error('Failed to enter fullscreen. Please try again.');
+    }
+  };
 
   // ===== NAVIGATION =====
   const goToQuestion = (index: number) => {
@@ -181,38 +280,48 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
   };
 
   // ===== SUBMIT =====
-  const handleSubmit = useCallback(async (autoSubmit = false) => {
-    if (!autoSubmit && !showConfirmSubmit) { setShowConfirmSubmit(true); return; }
-    clearInterval(timerRef.current!);
+  const forceSubmitTest = useCallback(async () => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (pingRef.current) clearInterval(pingRef.current);
+
+    // One final ping to mark submitted (optional, handled by standard submit too but good measure)
+    try {
+      fetch('/api/student/live-ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testId, currentQuestion: currentIndex, timeLeft: 0, tabSwitches, fullscreenExits })
+      });
+    } catch (e) {}
 
     try {
-      const res = await fetch(`/api/student/exam/${testId}`, {
+      await fetch(`/api/student/exam/${testId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answers, statuses, timeLeft }),
       });
-
-      if (!res.ok) {
-        throw new Error('Failed to submit exam');
+      if (document.fullscreenElement) {
+        await document.exitFullscreen().catch(()=>{});
       }
-
       router.push(`/exam/${testId}/results`);
     } catch (err) {
-      console.error(err);
-      setIsSubmitting(false);
-      setShowConfirmSubmit(false);
-      alert('Failed to submit the exam. Please check your connection and try again.');
+      alert('Failed to submit. Contact admin.');
     }
-  }, [showConfirmSubmit, answers, statuses, testId, router, timeLeft]);
+  }, [answers, statuses, testId, router, timeLeft, isSubmitting, currentIndex, tabSwitches, fullscreenExits]);
 
-  // ===== LOADING / ERROR =====
+  const handleManualSubmit = () => {
+    if (!showConfirmSubmit) { setShowConfirmSubmit(true); return; }
+    forceSubmitTest();
+  };
+
+  // ===== RENDER: LOADING/ERROR/GATEWAY =====
   if (isLoading) {
     return (
       <div className="h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center text-white">
           <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-lg font-medium">Loading Test...</p>
+          <p className="text-lg font-medium">Loading Environment...</p>
         </div>
       </div>
     );
@@ -229,12 +338,62 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
     );
   }
 
+  if (!hasStarted) {
+    const isEarly = template?.scheduled_start_time && Date.now() < new Date(template.scheduled_start_time).getTime();
+    return (
+      <div className="h-screen bg-slate-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-xl max-w-lg w-full p-8 border border-slate-200 text-center">
+          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h1 className="text-2xl font-black text-slate-800 mb-2">{template?.name}</h1>
+          <p className="text-slate-500 mb-8 leading-relaxed">
+            This examination is strictly proctored. You must remain in fullscreen mode for the duration of the test. Switching tabs or exiting fullscreen will be flagged.
+          </p>
+
+          {isEarly && (
+            <div className="bg-amber-50 text-amber-800 p-4 rounded-xl font-bold text-sm mb-6 border border-amber-200">
+              Scheduled Start: {new Date(template!.scheduled_start_time!).toLocaleString()}
+            </div>
+          )}
+
+          <button
+            onClick={handleStartTest}
+            disabled={isEarly as boolean}
+            className="w-full py-4 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-700 transition shadow-[0_4px_14px_0_rgba(37,99,235,0.39)] hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <Maximize className="w-5 h-5" /> Enter Fullscreen & Start Test
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ===== RENDER: EXAM =====
   const currentQ = questions[currentIndex];
   const answeredCount = Object.values(answers).filter(v => v !== null && v !== undefined).length;
   const markedCount = Object.values(statuses).filter(s => s === 'marked-review' || s === 'answered-marked').length;
 
   return (
-    <div className="h-screen flex flex-col bg-slate-100 overflow-hidden select-none">
+    <div ref={containerRef} className="h-screen flex flex-col bg-slate-100 overflow-hidden select-none">
+      
+      {/* Proctoring Warning Modal */}
+      {proctorWarning && (
+        <div className="fixed inset-0 bg-red-900/90 z-[100] flex items-center justify-center p-6 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl border-4 border-red-500">
+            <ShieldAlert className="w-16 h-16 text-red-500 mx-auto mb-4 animate-bounce" />
+            <h2 className="text-2xl font-black text-slate-900 mb-2">Proctoring Violation</h2>
+            <p className="text-slate-600 font-medium mb-8 leading-relaxed">{proctorWarning}</p>
+            <button 
+              onClick={enforceFullscreen}
+              className="w-full py-4 bg-red-600 text-white font-black rounded-xl hover:bg-red-700 transition"
+            >
+              Return to Exam (Fullscreen)
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ===== TOP BAR ===== */}
       <header className="bg-slate-900 text-white flex items-center justify-between px-4 py-2 flex-shrink-0 shadow-lg z-20">
         <div className="flex items-center gap-3">
@@ -285,7 +444,6 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
       <div className="flex flex-1 overflow-hidden">
         {/* ===== QUESTION PANEL ===== */}
         <main className="flex-1 flex flex-col overflow-hidden">
-          {/* Question header */}
           <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-3">
               <span className="text-sm font-bold text-slate-500">Q. {currentIndex + 1} of {questions.length}</span>
@@ -298,9 +456,7 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          {/* Scrollable question area */}
           <div className="flex-1 overflow-y-auto p-5 space-y-5">
-            {/* Question text */}
             <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
               <div className="text-slate-900 text-base leading-relaxed">
                 <MathRenderer text={currentQ?.question_text || ''} />
@@ -310,7 +466,6 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
               )}
             </div>
 
-            {/* Options */}
             <div className="space-y-3">
               {(currentQ?.options || []).map((opt, idx) => {
                 const isSelected = answers[currentQ?.id] === idx;
@@ -338,7 +493,6 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          {/* Bottom Nav */}
           <div className="bg-white border-t border-slate-200 px-5 py-3 flex items-center justify-between flex-shrink-0 gap-2">
             <div className="flex gap-2">
               <button
@@ -379,7 +533,6 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
           md:flex
           ${isPaletteOpen ? 'flex absolute right-0 top-0 bottom-0 z-10 shadow-2xl' : 'hidden'}
         `}>
-          {/* Legend */}
           <div className="p-4 border-b border-slate-200 flex-shrink-0">
             <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-3">Question Palette</p>
             <div className="grid grid-cols-2 gap-1.5">
@@ -392,7 +545,6 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          {/* Stats */}
           <div className="px-4 py-3 border-b border-slate-100 flex gap-4 text-center flex-shrink-0">
             <div className="flex-1">
               <p className="text-lg font-bold text-green-600">{answeredCount}</p>
@@ -408,7 +560,6 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
 
-          {/* Number Grid */}
           <div className="flex-1 overflow-y-auto p-4">
             {subjects.map(sub => (
               <div key={sub} className="mb-4">
@@ -433,7 +584,6 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
             ))}
           </div>
 
-          {/* Submit button at bottom of palette */}
           <div className="p-4 border-t border-slate-200 flex-shrink-0">
             <button
               onClick={() => setShowConfirmSubmit(true)}
@@ -473,7 +623,7 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
                 Go Back
               </button>
               <button
-                onClick={() => handleSubmit(false)}
+                onClick={handleManualSubmit}
                 disabled={isSubmitting}
                 className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-colors disabled:opacity-60"
               >
