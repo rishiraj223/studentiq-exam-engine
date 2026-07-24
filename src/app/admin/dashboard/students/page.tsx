@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Users, Search, ChevronRight, Loader2, BookOpen, Award, AlertCircle } from 'lucide-react';
+import { Users, Search, ChevronRight, Loader2, BookOpen, AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 type Student = {
@@ -43,21 +43,27 @@ export default function AdminStudentsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [batches, setBatches] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [totalInStandard, setTotalInStandard] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeStandard, setActiveStandard] = useState<'11th' | '12th'>('11th');
   const [activeBatch, setActiveBatch] = useState<string>('All');
 
   const fetchStudents = useCallback(async (standard: string) => {
     setIsLoading(true);
+    setFetchError(null);
     setSearchTerm('');
     setActiveBatch('All');
     try {
       const res = await fetch(`/api/admin/students?standard=${standard}`);
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch students');
       setStudents(data.students || []);
       setBatches(data.batches || []);
-    } catch (err) {
+      setTotalInStandard(data.students?.length || 0);
+    } catch (err: any) {
       console.error(err);
+      setFetchError(err.message || 'Unknown error');
     } finally {
       setIsLoading(false);
     }
@@ -153,13 +159,65 @@ export default function AdminStudentsPage() {
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
           <p className="text-sm text-slate-400 font-medium">Loading students...</p>
         </div>
+      ) : fetchError ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 bg-white rounded-2xl border border-rose-200 bg-rose-50">
+          <AlertCircle className="w-10 h-10 text-rose-400" />
+          <p className="text-rose-600 font-bold">Error loading students</p>
+          <p className="text-sm text-rose-500 max-w-sm text-center">{fetchError}</p>
+          <button
+            onClick={() => fetchStudents(activeStandard)}
+            className="flex items-center gap-2 mt-2 px-4 py-2 bg-white border border-rose-300 text-rose-600 font-bold rounded-xl hover:bg-rose-100 transition text-sm"
+          >
+            <RefreshCw className="w-4 h-4" /> Retry
+          </button>
+        </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-3 bg-white rounded-2xl border-2 border-dashed border-slate-200">
-          <AlertCircle className="w-10 h-10 text-slate-300" />
-          <p className="text-slate-500 font-medium">No students found</p>
-          <p className="text-sm text-slate-400">
-            {searchTerm ? `No results for "${searchTerm}"` : `No students in Class ${activeStandard}${activeBatch !== 'All' ? ` (${activeBatch})` : ''}`}
-          </p>
+        <div className="flex flex-col items-center justify-center py-16 gap-3 bg-white rounded-2xl border-2 border-dashed border-slate-200">
+          {searchTerm || activeBatch !== 'All' ? (
+            <>
+              <AlertCircle className="w-10 h-10 text-slate-300" />
+              <p className="text-slate-500 font-bold">No matching students</p>
+              <p className="text-sm text-slate-400">
+                {searchTerm ? `No results for "${searchTerm}"` : `No students in batch "${activeBatch}"`}
+              </p>
+              <button
+                onClick={() => { setSearchTerm(''); setActiveBatch('All'); }}
+                className="text-xs text-blue-600 font-bold hover:underline mt-1"
+              >
+                Clear filters
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-1">
+                <Users className="w-8 h-8 text-slate-300" />
+              </div>
+              <p className="text-slate-600 font-bold text-lg">No students in Class {activeStandard}</p>
+              <p className="text-sm text-slate-400 max-w-sm text-center leading-relaxed">
+                Your coaching's Class {activeStandard} students will appear here automatically — 
+                they're synced live from your main coaching portal.
+              </p>
+              <div className="mt-3 p-4 bg-blue-50 border border-blue-100 rounded-xl text-sm text-blue-700 max-w-sm">
+                <p className="font-bold mb-1">💡 To add students:</p>
+                <p className="leading-relaxed">Go to your <span className="font-bold">Coaching Portal → Students</span> and add or enrol students in Class {activeStandard}. They'll appear here instantly.</p>
+              </div>
+              {activeStandard === '11th' ? (
+                <button
+                  onClick={() => setActiveStandard('12th')}
+                  className="flex items-center gap-2 text-xs text-slate-500 font-semibold hover:text-blue-600 mt-2"
+                >
+                  Check Class 12th instead <ExternalLink className="w-3 h-3" />
+                </button>
+              ) : (
+                <button
+                  onClick={() => setActiveStandard('11th')}
+                  className="flex items-center gap-2 text-xs text-slate-500 font-semibold hover:text-blue-600 mt-2"
+                >
+                  Check Class 11th instead <ExternalLink className="w-3 h-3" />
+                </button>
+              )}
+            </>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
