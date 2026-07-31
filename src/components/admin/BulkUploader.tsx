@@ -17,9 +17,11 @@ interface ParsedQuestion {
   year: number | null;
   marks: number;
   negative_marks: number;
+  question_type: 'mcq' | 'numerical';
   question_text: string;
   options: string[];
-  correct_answer_index: number;
+  correct_answer_index: number | null;
+  numerical_answer: number | null;
   explanation: string | null;
   image_url: string | null;
   _rowNumber: number;
@@ -79,22 +81,63 @@ export function BulkUploader({ onBack }: { onBack: () => void }) {
             return;
           }
 
+          const ansMap: Record<string, number> = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
+          const rawAns = row.Correct_Answer?.trim().toUpperCase();
+
+          // ── Detect Numerical Question ──────────────────────────────────
+          const isNumerical =
+            row.Question_Type?.trim().toLowerCase() === 'numerical' ||
+            (!row.Option_A?.trim() && !row.Option_B?.trim() &&
+             !row.Option_C?.trim() && !row.Option_D?.trim() &&
+             rawAns !== '' && !['A','B','C','D'].includes(rawAns) &&
+             !isNaN(parseFloat(rawAns)));
+
+          if (isNumerical) {
+            // Numerical question — correct answer is a number
+            const numericalAnswer = parseFloat(row.Numerical_Answer?.trim() || rawAns);
+            if (isNaN(numericalAnswer)) {
+              foundErrors.push(`Row ${rowNum}: Numerical question must have a numeric Correct_Answer or Numerical_Answer.`);
+              return;
+            }
+            const isCET = row.Exam === 'MHT-CET A' || row.Exam === 'MHT-CET B';
+            const defaultMarks = isCET ? 2 : 4;
+            const yearParsed = parseInt(row.Year);
+            validQuestions.push({
+              exam_type: row.Exam,
+              standard: row.Standard,
+              subject: row.Subject,
+              chapter: row.Chapter,
+              difficulty: row.Difficulty ? row.Difficulty.toLowerCase() : 'medium',
+              year: isNaN(yearParsed) ? null : yearParsed,
+              marks: parseFloat(row.Marks) || defaultMarks,
+              negative_marks: 0,  // No negative for numerical
+              question_type: 'numerical',
+              question_text: row.Question,
+              options: [],
+              correct_answer_index: -1, // Use -1 to satisfy NOT NULL constraint
+              numerical_answer: numericalAnswer,
+              explanation: row.Explanation || null,
+              image_url: row.Image_URL && row.Image_URL !== '[NEEDS IMAGE]' ? row.Image_URL : null,
+              _rowNumber: rowNum
+            });
+            return;
+          }
+
+          // ── MCQ Question ───────────────────────────────────────────────
           if (!row.Option_A || !row.Option_B || !row.Option_C || !row.Option_D) {
             foundErrors.push(`Row ${rowNum}: Missing one or more options (A, B, C, D)`);
             return;
           }
 
-          const ansMap: Record<string, number> = { 'A': 0, 'B': 1, 'C': 2, 'D': 3 };
           let correct_answer_index = -1;
-          const rawAns = row.Correct_Answer?.trim().toUpperCase();
           if (ansMap[rawAns] !== undefined) {
             correct_answer_index = ansMap[rawAns];
           } else {
-            foundErrors.push(`Row ${rowNum}: Invalid Correct_Answer "${rawAns}". Must be A, B, C, or D.`);
+            foundErrors.push(`Row ${rowNum}: Invalid Correct_Answer "${rawAns}". Must be A, B, C, or D (or a number for numerical questions).`);
             return;
           }
 
-          // Defaults
+          // Defaults for MCQ
           const isCET = row.Exam === 'MHT-CET A' || row.Exam === 'MHT-CET B';
           let defaultMarks = 4;
           let defaultNeg = 1;
@@ -114,18 +157,44 @@ export function BulkUploader({ onBack }: { onBack: () => void }) {
             year: isNaN(yearParsed) ? null : yearParsed,
             marks: parseFloat(row.Marks) || defaultMarks,
             negative_marks: parseFloat(row.Negative_Marks) || defaultNeg,
+            question_type: 'mcq',
             question_text: row.Question,
             options: [row.Option_A, row.Option_B, row.Option_C, row.Option_D],
             correct_answer_index,
+            numerical_answer: null,
             explanation: row.Explanation || null,
             image_url: row.Image_URL && row.Image_URL !== '[NEEDS IMAGE]' ? row.Image_URL : null,
             _rowNumber: rowNum
           });
+
         });
 
-        setParsedData(validQuestions);
-        setErrors(foundErrors);
-        setIsParsing(false);
+        // ── Detect Duplicates Immediately ──────────────────────────────
+        const questionTexts = validQuestions.map(q => q.question_text);
+        if (questionTexts.length > 0) {
+          supabase
+            .from('questions')
+            .select('question_text')
+            .in('question_text', questionTexts)
+            .then(({ data: existingData }) => {
+              const existingTexts = new Set(existingData?.map(q => q.question_text) || []);
+              
+              const uniqueQuestions = validQuestions.filter(q => !existingTexts.has(q.question_text));
+              const duplicateCount = validQuestions.length - uniqueQuestions.length;
+              
+              if (duplicateCount > 0) {
+                foundErrors.push(`Skipped ${duplicateCount} duplicate question(s) that already exist in the database.`);
+              }
+
+              setParsedData(uniqueQuestions);
+              setErrors(foundErrors);
+              setIsParsing(false);
+            });
+        } else {
+          setParsedData(validQuestions);
+          setErrors(foundErrors);
+          setIsParsing(false);
+        }
       },
       error: (error: Error) => {
         setErrors([`Failed to parse CSV: ${error.message}`]);
@@ -139,45 +208,19 @@ export function BulkUploader({ onBack }: { onBack: () => void }) {
     setIsUploading(true);
 
     try {
-      // 1. Fetch existing questions to prevent duplicates
-      const questionTexts = parsedData.map(q => q.question_text);
-      
-      // We chunk the query if there are too many questions, but for normal CSVs (e.g. 50-100) this is fine.
-      const { data: existingData, error: fetchError } = await supabase
-        .from('questions')
-        .select('question_text')
-        .in('question_text', questionTexts);
-
-      if (fetchError) throw fetchError;
-
-      const existingTexts = new Set(existingData?.map(q => q.question_text) || []);
-
-      // 2. Filter out duplicates
-      const uniqueQuestions = parsedData.filter(q => !existingTexts.has(q.question_text));
-      const duplicateCount = parsedData.length - uniqueQuestions.length;
-
-      if (uniqueQuestions.length === 0) {
-        toast.error(`All ${duplicateCount} questions already exist in the database!`);
-        setIsUploading(false);
-        return;
-      }
-
-      // 3. Clean out _rowNumber before insert
-      const insertData = uniqueQuestions.map(q => {
+      // 1. Clean out _rowNumber before insert
+      const insertData = parsedData.map(q => {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { _rowNumber, ...dbData } = q;
         return dbData;
       });
 
-      // 4. Insert unique questions
+      // 2. Insert unique questions
       const { error: insertError } = await supabase.from('questions').insert(insertData);
 
       if (insertError) throw insertError;
 
-      toast.success(
-        `Successfully added ${uniqueQuestions.length} questions!` +
-        (duplicateCount > 0 ? ` (Skipped ${duplicateCount} duplicates)` : '')
-      );
+      toast.success(`Successfully added ${parsedData.length} questions!`);
       
       setUploadSuccess(true);
       setParsedData([]);
@@ -270,6 +313,7 @@ export function BulkUploader({ onBack }: { onBack: () => void }) {
                         <table className="w-full text-left text-sm text-slate-600">
                           <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 font-semibold text-slate-700">
                             <tr>
+                              <th className="p-3">Type</th>
                               <th className="p-3">Exam</th>
                               <th className="p-3">Subject</th>
                               <th className="p-3">Chapter</th>
@@ -279,6 +323,11 @@ export function BulkUploader({ onBack }: { onBack: () => void }) {
                           <tbody>
                             {parsedData.map(q => (
                               <tr key={q._rowNumber} className="border-b border-slate-100 last:border-0 hover:bg-slate-50">
+                                <td className="p-3">
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                    q.question_type === 'numerical' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                                  }`}>{q.question_type === 'numerical' ? '🔢 Num' : '☑ MCQ'}</span>
+                                </td>
                                 <td className="p-3">{q.exam_type}</td>
                                 <td className="p-3">{q.subject}</td>
                                 <td className="p-3">{q.chapter}</td>

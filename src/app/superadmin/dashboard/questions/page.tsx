@@ -53,7 +53,7 @@ export default function AdminPage() {
 
   // Available subjects/chapters (fetched from DB)
   const [subjects, setSubjects] = useState<string[]>([]);
-  const [chapters, setChapters] = useState<{ name: string; chapter_number: number }[]>([]);
+  const [chapters, setChapters] = useState<{ name: string; chapter_number: number; standard: string }[]>([]);
 
   // Question form state
   const [questionText, setQuestionText] = useState('');
@@ -68,6 +68,8 @@ export default function AdminPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
+  const [questionType, setQuestionType] = useState<'mcq' | 'numerical'>('mcq');
+  const [numericalAnswer, setNumericalAnswer] = useState('');
 
   // Tab state for step 4
   const [activeTab, setActiveTab] = useState<'add' | 'view'>('add');
@@ -116,27 +118,27 @@ export default function AdminPage() {
 
   // ==================== FETCH CHAPTERS ====================
   useEffect(() => {
-    if (!selectedExam || !selectedSubject || !selectedStandard) return;
+    if (!selectedExam || !selectedSubject) return;
     const fetchChapters = async () => {
       const { data } = await supabase
         .from('chapters')
-        .select('name, chapter_number')
+        .select('name, chapter_number, standard')
         .eq('exam_type', selectedExam)
         .eq('subject', selectedSubject)
-        .eq('standard', selectedStandard)
         .eq('is_active', true)
-        .order('chapter_number');
+        .order('standard', { ascending: true })
+        .order('chapter_number', { ascending: true });
       if (data) setChapters(data);
     };
     fetchChapters();
-  }, [selectedExam, selectedSubject, selectedStandard]);
+  }, [selectedExam, selectedSubject]);
 
   // ==================== FETCH STORED QUESTIONS ====================
   const fetchStoredQuestions = async () => {
     setIsLoadingQuestions(true);
     const { data } = await supabase
       .from('questions')
-      .select('id, question_text, options, correct_answer_index, difficulty, year, explanation, marks, negative_marks, image_url')
+      .select('id, question_text, options, correct_answer_index, difficulty, year, explanation, marks, negative_marks, image_url, question_type, numerical_answer')
       .eq('exam_type', selectedExam)
       .eq('subject', selectedSubject)
       .eq('standard', selectedStandard)
@@ -166,8 +168,10 @@ export default function AdminPage() {
   const startEditing = (q: any) => {
     setEditingQuestion(q);
     setQuestionText(q.question_text || '');
-    setOptions(q.options || ['', '', '', '']);
-    setCorrectIndex(q.correct_answer_index);
+    setQuestionType(q.question_type || 'mcq');
+    setOptions(q.options?.length ? q.options : ['', '', '', '']);
+    setCorrectIndex(q.correct_answer_index ?? null);
+    setNumericalAnswer(q.numerical_answer !== null && q.numerical_answer !== undefined ? String(q.numerical_answer) : '');
     setExplanation(q.explanation || '');
     setYear(q.year || '');
     setDifficulty(q.difficulty || 'medium');
@@ -224,14 +228,24 @@ export default function AdminPage() {
     setDifficulty('medium');
     setMarks(defaults.marks);
     setNegativeMarks(defaults.neg);
+    setNumericalAnswer('');
+    setQuestionType('mcq');
     clearImage();
   };
 
   // ==================== SAVE QUESTION ====================
   const handleSave = async () => {
     if (!questionText.trim()) { toast.error('Question text is required'); return; }
-    if (options.some(o => !o.trim())) { toast.error('All 4 options must be filled'); return; }
-    if (correctIndex === null) { toast.error('Please select the correct answer'); return; }
+    
+    if (questionType === 'mcq') {
+      if (options.some(o => !o.trim())) { toast.error('All 4 options must be filled'); return; }
+      if (correctIndex === null) { toast.error('Please select the correct answer'); return; }
+    } else {
+      if (!numericalAnswer.trim() || isNaN(parseFloat(numericalAnswer))) {
+        toast.error('Please enter a valid numerical answer');
+        return;
+      }
+    }
 
     setIsSaving(true);
     let imageUrl: string | null = null;
@@ -259,10 +273,12 @@ export default function AdminPage() {
       difficulty,
       year: year ? parseInt(year) : null,
       marks: parseFloat(marks) || 4,
-      negative_marks: parseFloat(negativeMarks) || 0,
+      negative_marks: questionType === 'numerical' ? 0 : (parseFloat(negativeMarks) || 0),
+      question_type: questionType,
       question_text: questionText,
-      options,
-      correct_answer_index: correctIndex,
+      options: questionType === 'mcq' ? options : [],
+      correct_answer_index: questionType === 'mcq' ? correctIndex : -1,
+      numerical_answer: questionType === 'numerical' ? parseFloat(numericalAnswer) : null,
       explanation: explanation || null,
       image_url: imageUrl,
     };
@@ -388,44 +404,38 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ===== STEP 3: SELECT STANDARD + CHAPTER ===== */}
+        {/* ===== STEP 3: SELECT CHAPTER ===== */}
         {step === 3 && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
             <div className="flex items-center gap-4">
               <button onClick={() => setStep(2)} className="p-2 rounded-lg hover:bg-slate-100 transition-colors"><ChevronLeft className="w-5 h-5" /></button>
               <div>
                 <h1 className="text-3xl font-bold text-slate-900">Select Chapter</h1>
-                <p className="text-slate-500 mt-1">Pick the standard and chapter for this batch of questions.</p>
+                <p className="text-slate-500 mt-1">Pick the chapter for this batch of questions.</p>
               </div>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Standard</p>
-              <div className="flex gap-3">
-                {['11th', '12th'].map(std => (
-                  <button key={std} onClick={() => setSelectedStandard(std)}
-                    className={`px-6 py-3 rounded-xl font-semibold border-2 transition-all ${selectedStandard === std ? 'bg-primary-600 border-primary-600 text-white shadow-lg' : 'bg-white border-slate-200 text-slate-700 hover:border-primary-300'}`}>
-                    Class {std}
-                  </button>
-                ))}
-              </div>
-            </div>
-            {selectedStandard && (
-              <div>
-                <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Chapter</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {chapters.map(ch => (
-                    <button key={ch.name} onClick={() => { setSelectedChapter(ch.name); setActiveTab('add'); setStep(4); }}
-                      className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-white hover:border-primary-400 hover:bg-primary-50 transition-all text-left group">
-                      <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 text-sm font-bold group-hover:bg-primary-100 group-hover:text-primary-700 transition-colors flex-shrink-0">
-                        {ch.chapter_number}
-                      </span>
-                      <span className="text-slate-800 font-medium text-sm">{ch.name}</span>
-                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-primary-500 ml-auto transition-colors" />
-                    </button>
-                  ))}
+            
+            {['11th', '12th'].map(std => {
+              const stdChapters = chapters.filter(c => c.standard === std);
+              if (stdChapters.length === 0) return null;
+              return (
+                <div key={std} className="mb-6">
+                  <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3">Class {std}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {stdChapters.map(ch => (
+                      <button key={ch.name} onClick={() => { setSelectedStandard(std); setSelectedChapter(ch.name); setActiveTab('add'); setStep(4); }}
+                        className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 bg-white hover:border-primary-400 hover:bg-primary-50 transition-all text-left group">
+                        <span className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-100 text-slate-500 text-sm font-bold group-hover:bg-primary-100 group-hover:text-primary-700 transition-colors flex-shrink-0">
+                          {ch.chapter_number}
+                        </span>
+                        <span className="text-slate-800 font-medium text-sm">{ch.name}</span>
+                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-primary-500 ml-auto transition-colors" />
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })}
           </div>
         )}
 
@@ -517,6 +527,36 @@ export default function AdminPage() {
                 <Card className="border-slate-200 bg-white">
                   <CardContent className="p-6 space-y-6">
 
+                    {/* Question Type Toggle */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700">Question Type</label>
+                      <div className="flex gap-2 p-1 bg-slate-100 rounded-xl w-fit">
+                        <button
+                          type="button"
+                          onClick={() => { setQuestionType('mcq'); setNumericalAnswer(''); }}
+                          className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                            questionType === 'mcq' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                          }`}
+                        >
+                          ☑ MCQ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setQuestionType('numerical'); setOptions(['','','','']); setCorrectIndex(null); setNegativeMarks('0'); }}
+                          className={`px-5 py-2 rounded-lg text-sm font-bold transition-all ${
+                            questionType === 'numerical' ? 'bg-white text-amber-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                          }`}
+                        >
+                          🔢 Numerical
+                        </button>
+                      </div>
+                      {questionType === 'numerical' && (
+                        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                          <strong>JEE Main Numerical:</strong> No negative marking. Student types an exact number.
+                        </p>
+                      )}
+                    </div>
+
                     {/* Question Text */}
                     <div className="space-y-2">
                       <label className="text-sm font-semibold text-slate-700">
@@ -539,7 +579,8 @@ export default function AdminPage() {
                       )}
                     </div>
 
-                    {/* Options */}
+                    {/* Options or Numerical Answer */}
+                    {questionType === 'mcq' ? (
                     <div className="space-y-3">
                       <label className="text-sm font-semibold text-slate-700">
                         Options <span className="text-slate-400 font-normal">(click the circle to mark correct answer)</span>
@@ -568,6 +609,21 @@ export default function AdminPage() {
                       ))}
                       {correctIndex === null && <p className="text-xs text-amber-600">⚠ Click a circle to select the correct answer</p>}
                     </div>
+                    ) : (
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold text-slate-700">
+                        Correct Numerical Answer <span className="text-slate-400 font-normal">(exact number — integer or decimal)</span>
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={numericalAnswer}
+                        onChange={e => setNumericalAnswer(e.target.value)}
+                        placeholder="e.g. 40 or 9.8 or -1.5"
+                        className="w-full h-14 text-xl font-black text-slate-900 rounded-xl border-2 border-amber-300 bg-amber-50 px-5 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 text-center"
+                      />
+                    </div>
+                    )}
 
                     {/* Image Upload */}
                     <div className="space-y-2">

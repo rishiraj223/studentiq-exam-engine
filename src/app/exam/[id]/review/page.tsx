@@ -19,6 +19,10 @@ type ReviewQuestion = {
   chapter: string;
   explanation: string | null;
   status: string;
+  // Numerical fields
+  questionType?: string;
+  numericalAnswer?: number | null;
+  selectedNumerical?: string | null;
 };
 
 type ReviewData = {
@@ -80,12 +84,38 @@ function QuestionCard({ q, globalIndex }: { q: ReviewQuestion; globalIndex: numb
           {/* Full question text */}
           <p className="text-sm text-slate-800 leading-relaxed font-medium">{q.questionText}</p>
 
+          {/* Numerical badge */}
+          {q.questionType === 'numerical' && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 text-amber-800 text-xs font-black rounded-full">
+              🔢 Numerical Question
+            </span>
+          )}
+
           {/* Question image */}
           {q.imageUrl && (
             <img src={q.imageUrl} alt="Question" className="rounded-xl max-h-64 object-contain border border-slate-200" />
           )}
 
-          {/* Options */}
+          {/* Options (MCQ) or Numerical Answer display */}
+          {q.questionType === 'numerical' ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className={`rounded-xl border-2 p-4 text-center ${
+                q.isCorrect ? 'border-emerald-400 bg-emerald-50' :
+                q.selectedNumerical ? 'border-rose-400 bg-rose-50' : 'border-slate-200 bg-slate-50'
+              }`}>
+                <p className="text-xs font-bold text-slate-500 mb-1">Your Answer</p>
+                <p className={`text-2xl font-black ${
+                  q.isCorrect ? 'text-emerald-700' : q.selectedNumerical ? 'text-rose-700' : 'text-slate-400'
+                }`}>
+                  {q.selectedNumerical ?? <span className="text-sm font-bold">Skipped</span>}
+                </p>
+              </div>
+              <div className="rounded-xl border-2 border-emerald-400 bg-emerald-50 p-4 text-center">
+                <p className="text-xs font-bold text-emerald-700 mb-1">Correct Answer</p>
+                <p className="text-2xl font-black text-emerald-700">{q.numericalAnswer}</p>
+              </div>
+            </div>
+          ) : (
           <div className="space-y-2">
             {q.options.map((opt, idx) => {
               const isCorrectOpt = idx === q.correctIndex;
@@ -110,8 +140,10 @@ function QuestionCard({ q, globalIndex }: { q: ReviewQuestion; globalIndex: numb
               );
             })}
           </div>
+          )}
 
-          {/* Your answer summary */}
+          {/* Your answer summary (MCQ only) */}
+          {q.questionType !== 'numerical' && (
           <div className="text-xs font-medium text-slate-500 flex flex-wrap gap-3">
             <span>
               <strong>Correct Answer:</strong> {['A', 'B', 'C', 'D'][q.correctIndex]}
@@ -124,6 +156,7 @@ function QuestionCard({ q, globalIndex }: { q: ReviewQuestion; globalIndex: numb
               }
             </span>
           </div>
+          )}
 
           {/* Explanation */}
           {q.explanation && (

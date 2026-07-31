@@ -25,16 +25,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Invalid Email or Password.' }, { status: 401 });
     }
 
-    const coachingId = authData.user.id;
-
-    // Fetch the coaching name for the UI
-    const { data: coachingData } = await coachingAdmin
+    // Fetch the coaching center by email instead of assuming auth user ID = coaching ID
+    const { data: coachingData, error: coachingErr } = await coachingAdmin
       .from('coaching_centers')
-      .select('name')
-      .eq('id', coachingId)
+      .select('id, name')
+      .eq('email', email)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
-    const coachingName = coachingData?.name || 'Coaching Admin';
+    if (coachingErr || !coachingData) {
+      return NextResponse.json({ ok: false, error: 'No Coaching Center found for this email.' }, { status: 404 });
+    }
+
+    const coachingId = coachingData.id;
+    const coachingName = coachingData.name || 'Coaching Admin';
 
     // Create session cookie
     const response = NextResponse.json({ ok: true, coachingId, coachingName });
@@ -42,7 +47,7 @@ export async function POST(req: NextRequest) {
     const sessionData = JSON.stringify({
       coaching_id: coachingId,
       coaching_name: coachingName,
-      email: authData.user.email
+      email: email
     });
 
     response.cookies.set('exam_coaching_session', sessionData, {

@@ -37,22 +37,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ test
     // 4. Fetch full question data including correct answer and explanation
     const { data: questions, error: qErr } = await admin
       .from('questions')
-      .select('id, question_text, options, correct_answer_index, marks, negative_marks, subject, chapter, image_url, explanation')
+      .select('id, question_text, options, correct_answer_index, marks, negative_marks, subject, chapter, image_url, explanation, question_type, numerical_answer')
       .in('id', allIds);
 
     if (qErr || !questions) return NextResponse.json({ error: 'Failed to load questions' }, { status: 500 });
 
     // 5. Build a map of questionId → studentResponse
-    const responseMap: Record<string, { selected_option: number | null; is_correct: boolean | null; status: string }> = {};
+    const responseMap: Record<string, { selected_option: number | null; selected_numerical: string | null; is_correct: boolean | null; status: string }> = {};
     const responses = attempt.responses as Array<{
       question_id: string;
       selected_option: number | null;
+      selected_numerical?: string | null;
       is_correct: boolean | null;
       status: string;
     }>;
     for (const r of (responses || [])) {
       responseMap[r.question_id] = {
         selected_option: r.selected_option,
+        selected_numerical: r.selected_numerical ?? null,
         is_correct: r.is_correct,
         status: r.status,
       };
@@ -89,7 +91,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ test
           questionNumber: idx + 1,
           questionText: q.question_text,
           imageUrl: q.image_url || null,
-          options: q.options,
+          options: q.options || [],
           correctIndex: q.correct_answer_index,
           selectedIndex: r?.selected_option ?? null,
           isCorrect: r?.is_correct ?? null,
@@ -99,6 +101,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ test
           chapter: q.chapter,
           explanation: q.explanation || null,
           status: r?.status || 'not-visited',
+          // Numerical fields
+          questionType: q.question_type || 'mcq',
+          numericalAnswer: q.numerical_answer ?? null,
+          selectedNumerical: r?.selected_numerical ?? null,
         };
       }).filter((q): q is NonNullable<typeof q> => q !== null);
     }

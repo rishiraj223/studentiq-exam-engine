@@ -14,7 +14,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { examType, subjects, totalQuestions, durationMinutes, testName, isChapterMode, chapterName } = body;
+    const { examType, subjects, mcqCount, numericalCount, durationMinutes, testName, isChapterMode, chapterName } = body;
+    const totalQuestions = (mcqCount || 0) + (numericalCount || 0);
     
     if (!examType) return NextResponse.json({ error: 'Exam type is required' }, { status: 400 });
 
@@ -26,20 +27,40 @@ export async function POST(req: NextRequest) {
     // Handle Custom vs Chapter Test modes
     if (isChapterMode && chapterName && subjects.length === 1) {
       const subject = subjects[0];
-      const { data: questions } = await admin
+      const { data: mcqQs } = await admin
         .from('questions')
         .select('id, marks')
         .eq('exam_type', examType)
         .eq('subject', subject)
-        .eq('chapter', chapterName);
+        .eq('chapter', chapterName)
+        .eq('question_type', 'mcq');
 
-      if (!questions || questions.length === 0) {
+      const { data: numQs } = await admin
+        .from('questions')
+        .select('id, marks')
+        .eq('exam_type', examType)
+        .eq('subject', subject)
+        .eq('chapter', chapterName)
+        .eq('question_type', 'numerical');
+
+      const mcqPool = mcqQs || [];
+      const numPool = numQs || [];
+
+      const shuffledNum = [...numPool].sort(() => 0.5 - Math.random());
+      const selectedNum = shuffledNum.slice(0, numericalCount || 0);
+
+      const missingNum = (numericalCount || 0) - selectedNum.length;
+      const targetMcqCount = (mcqCount || 0) + missingNum;
+
+      const shuffledMcq = [...mcqPool].sort(() => 0.5 - Math.random());
+      const selectedMcq = shuffledMcq.slice(0, targetMcqCount);
+
+      const selected = [...selectedMcq, ...selectedNum].sort(() => 0.5 - Math.random());
+
+      if (selected.length === 0) {
         return NextResponse.json({ error: `No questions found for ${chapterName}` }, { status: 400 });
       }
 
-      const shuffled = [...questions].sort(() => 0.5 - Math.random());
-      const selected = shuffled.slice(0, Math.min(totalQuestions || 20, shuffled.length));
-      
       sections[subject] = [];
       selected.forEach(q => {
         sections[subject].push(q.id);
@@ -52,19 +73,40 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'At least one subject is required' }, { status: 400 });
       }
       
-      const targetQuestionsPerSubject = Math.floor(totalQuestions / subjects.length);
+      const targetMcqPerSubject = Math.floor((mcqCount || 0) / subjects.length);
+      const targetNumPerSubject = Math.floor((numericalCount || 0) / subjects.length);
+
       const fetchPromises = subjects.map(async (subject: string) => {
-        const { data: questions } = await admin
+        const { data: mcqQs } = await admin
           .from('questions')
           .select('id, marks')
           .eq('exam_type', examType)
-          .eq('subject', subject);
+          .eq('subject', subject)
+          .eq('question_type', 'mcq');
         // Note: We don't filter by standard here because the user explicitly requested BOTH 11th and 12th standards to be included in custom tests!
-        
-        if (!questions || questions.length === 0) return null;
 
-        const shuffled = [...questions].sort(() => 0.5 - Math.random());
-        const selected = shuffled.slice(0, Math.min(targetQuestionsPerSubject, shuffled.length));
+        const { data: numQs } = await admin
+          .from('questions')
+          .select('id, marks')
+          .eq('exam_type', examType)
+          .eq('subject', subject)
+          .eq('question_type', 'numerical');
+        
+        const mcqPool = mcqQs || [];
+        const numPool = numQs || [];
+
+        const shuffledNum = [...numPool].sort(() => 0.5 - Math.random());
+        const selectedNum = shuffledNum.slice(0, targetNumPerSubject);
+
+        const missingNum = targetNumPerSubject - selectedNum.length;
+        const targetMcqCount = targetMcqPerSubject + missingNum;
+
+        const shuffledMcq = [...mcqPool].sort(() => 0.5 - Math.random());
+        const selectedMcq = shuffledMcq.slice(0, targetMcqCount);
+
+        const selected = [...selectedMcq, ...selectedNum].sort(() => 0.5 - Math.random());
+        
+        if (selected.length === 0) return null;
         return { subject, selected };
       });
 

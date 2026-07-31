@@ -53,7 +53,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ test
     const allIds = Object.values(tmpl.sections).flat() as string[];
     const { data: qs, error: qErr } = await admin
       .from('questions')
-      .select('id, question_text, options, marks, negative_marks, subject, image_url')
+      .select('id, question_text, options, marks, negative_marks, subject, image_url, question_type, numerical_answer')
       .in('id', allIds);
 
     if (qErr || !qs) return NextResponse.json({ error: 'Failed to load questions' }, { status: 500 });
@@ -84,7 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tes
       return NextResponse.json({ error: 'Test deadline has passed' }, { status: 403 });
     }
 
-    const correctMap: Record<string, { correct_answer_index: number; marks: number; negative_marks: number }> = {};
+    const correctMap: Record<string, { correct_answer_index: number; marks: number; negative_marks: number; question_type?: string; numerical_answer?: number | null }> = {};
     let allIds: string[] = [];
 
     // Custom JSON Tests logic
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tes
       allIds = Object.values(tmpl.sections).flat() as string[];
       const { data: correctData } = await admin
         .from('questions')
-        .select('id, correct_answer_index, marks, negative_marks')
+        .select('id, correct_answer_index, marks, negative_marks, question_type, numerical_answer')
         .in('id', allIds);
       
       correctData?.forEach(q => { correctMap[q.id] = q; });
@@ -123,8 +123,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tes
       const correct = correctMap[qid];
       let is_correct: boolean | null = null;
 
-      if (selected === undefined || selected === null) {
+      if (selected === undefined || selected === null || selected === '') {
         unansweredCount++;
+      } else if (correct?.question_type === 'numerical') {
+        // Numerical: compare float values, 0 negative marks
+        const studentNum = parseFloat(String(selected));
+        const correctNum = correct.numerical_answer;
+        if (!isNaN(studentNum) && correctNum !== null && correctNum !== undefined && studentNum === correctNum) {
+          is_correct = true;
+          correctCount++;
+          totalScore += correct.marks || 4;
+        } else {
+          is_correct = false;
+          incorrectCount++;
+          // NO negative marking for numerical in JEE Main
+        }
       } else if (correct && selected === correct.correct_answer_index) {
         is_correct = true;
         correctCount++;
@@ -137,7 +150,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ tes
 
       return {
         question_id: qid,
-        selected_option: selected ?? null,
+        selected_option: correct?.question_type === 'numerical' ? null : (selected as number ?? null),
+        selected_numerical: correct?.question_type === 'numerical' ? String(selected) : null,
         is_correct,
         status: statuses[qid] || 'not-visited',
       };

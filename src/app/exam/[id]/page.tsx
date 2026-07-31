@@ -16,6 +16,8 @@ interface Question {
   negative_marks: number;
   subject: string;
   image_url?: string;
+  question_type: string;
+  numerical_answer?: number | null;
 }
 
 interface TestTemplate {
@@ -68,7 +70,7 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
   // Exam state
   const [hasStarted, setHasStarted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<string, number | null>>({});
+  const [answers, setAnswers] = useState<Record<string, number | string | null>>({});
   const [statuses, setStatuses] = useState<Record<string, QuestionStatus>>({});
   const [timeLeft, setTimeLeft] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -263,6 +265,20 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
     }));
   };
 
+  const handleNumericalInput = (value: string) => {
+    const q = questions[currentIndex];
+    if (value === '' || value === '-') {
+      setAnswers(prev => ({ ...prev, [q.id]: value === '' ? null : value }));
+      setStatuses(prev => ({ ...prev, [q.id]: value === '' ? 'not-answered' : 'answered' }));
+    } else {
+      setAnswers(prev => ({ ...prev, [q.id]: value }));
+      setStatuses(prev => ({
+        ...prev,
+        [q.id]: prev[q.id] === 'marked-review' || prev[q.id] === 'answered-marked' ? 'answered-marked' : 'answered',
+      }));
+    }
+  };
+
   const handleClearResponse = () => {
     const q = questions[currentIndex];
     setAnswers(prev => { const n = {...prev}; delete n[q.id]; return n; });
@@ -371,7 +387,7 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
 
   // ===== RENDER: EXAM =====
   const currentQ = questions[currentIndex];
-  const answeredCount = Object.values(answers).filter(v => v !== null && v !== undefined).length;
+  const answeredCount = Object.values(answers).filter(v => v !== null && v !== undefined && v !== '').length;
   const markedCount = Object.values(statuses).filter(s => s === 'marked-review' || s === 'answered-marked').length;
 
   return (
@@ -450,6 +466,9 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${currentQ?.subject === 'Physics' ? 'bg-blue-100 text-blue-700' : currentQ?.subject === 'Chemistry' ? 'bg-green-100 text-green-700' : currentQ?.subject === 'Mathematics' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>
                 {currentQ?.subject}
               </span>
+              {currentQ?.question_type === 'numerical' && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Numerical</span>
+              )}
             </div>
             <div className="text-xs text-slate-500">
               Marks: <span className="font-bold text-green-600">+{currentQ?.marks}</span> | Negative: <span className="font-bold text-red-600">-{currentQ?.negative_marks}</span>
@@ -462,34 +481,55 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
                 <MathRenderer text={currentQ?.question_text || ''} />
               </div>
               {currentQ?.image_url && (
-                <img src={currentQ.image_url} alt="Question diagram" className="mt-4 max-h-48 object-contain rounded-lg border border-slate-200" />
+                <div className="mt-4 min-h-[150px] w-full flex items-center justify-start">
+                  <img src={currentQ.image_url} alt="Question diagram" className="max-h-48 object-contain rounded-lg border border-slate-200" />
+                </div>
               )}
             </div>
 
             <div className="space-y-3">
-              {(currentQ?.options || []).map((opt, idx) => {
-                const isSelected = answers[currentQ?.id] === idx;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => handleOptionSelect(idx)}
-                    className={`w-full flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all ${
-                      isSelected
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all ${
-                      isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 text-slate-500'
-                    }`}>
-                      {String.fromCharCode(65 + idx)}
-                    </span>
-                    <span className={`text-sm leading-relaxed mt-0.5 ${isSelected ? 'text-blue-900 font-medium' : 'text-slate-700'}`}>
-                      <MathRenderer text={opt} />
-                    </span>
-                  </button>
-                );
-              })}
+              {currentQ?.question_type === 'numerical' ? (
+                <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-black rounded-full uppercase tracking-wide">🔢 Numerical Type</span>
+                    <span className="text-xs text-amber-700">JEE Main · +4 marks, 0 negative</span>
+                  </div>
+                  <label className="text-sm font-bold text-slate-700 block mb-2">Enter your answer:</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={(answers[currentQ?.id] as string) ?? ''}
+                    onChange={e => handleNumericalInput(e.target.value)}
+                    placeholder="Type a number (e.g. 9.8 or -4 or 100)"
+                    className="w-full text-xl font-black text-slate-900 bg-white border-2 border-slate-300 rounded-xl px-5 py-4 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-center"
+                  />
+                  <p className="text-xs text-amber-600 mt-3 text-center">Answer can be an integer or decimal. Enter the value and move on.</p>
+                </div>
+              ) : (
+                (currentQ?.options || []).map((opt, idx) => {
+                  const isSelected = answers[currentQ?.id] === idx;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => handleOptionSelect(idx)}
+                      className={`w-full flex items-start gap-4 p-4 rounded-xl border-2 text-left transition-all ${
+                        isSelected
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-sm font-bold flex-shrink-0 transition-all ${
+                        isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 text-slate-500'
+                      }`}>
+                        {String.fromCharCode(65 + idx)}
+                      </span>
+                      <span className={`text-sm leading-relaxed mt-0.5 ${isSelected ? 'text-blue-900 font-medium' : 'text-slate-700'}`}>
+                        <MathRenderer text={opt} />
+                      </span>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
 

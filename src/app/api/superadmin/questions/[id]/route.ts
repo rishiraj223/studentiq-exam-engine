@@ -10,17 +10,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
     const { data, error } = await admin
       .from('questions')
-      .update({
-        question_text: body.questionText,
-        options: body.options,
-        correct_answer_index: body.correctIndex,
-        explanation: body.explanation,
-        year: body.year,
-        difficulty: body.difficulty,
-        marks: parseFloat(body.marks),
-        negative_marks: parseFloat(body.negativeMarks),
-        image_url: body.image_url,
-      })
+      .update(body)
       .eq('id', id)
       .select()
       .single();

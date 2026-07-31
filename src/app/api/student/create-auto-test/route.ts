@@ -4,31 +4,31 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 
 // Weightage config per exam type
-const EXAM_WEIGHTAGE: Record<string, { subject: string; count: number }[]> = {
+const EXAM_WEIGHTAGE: Record<string, { subject: string; mcq: number; numerical: number }[]> = {
   'JEE Main': [
-    { subject: 'Physics', count: 30 },
-    { subject: 'Chemistry', count: 30 },
-    { subject: 'Mathematics', count: 30 },
+    { subject: 'Physics', mcq: 20, numerical: 5 },
+    { subject: 'Chemistry', mcq: 20, numerical: 5 },
+    { subject: 'Mathematics', mcq: 20, numerical: 5 },
   ],
   'JEE Advanced': [
-    { subject: 'Physics', count: 20 },
-    { subject: 'Chemistry', count: 20 },
-    { subject: 'Mathematics', count: 20 },
+    { subject: 'Physics', mcq: 20, numerical: 0 },
+    { subject: 'Chemistry', mcq: 20, numerical: 0 },
+    { subject: 'Mathematics', mcq: 20, numerical: 0 },
   ],
   'NEET': [
-    { subject: 'Physics', count: 45 },
-    { subject: 'Chemistry', count: 45 },
-    { subject: 'Biology', count: 90 },
+    { subject: 'Physics', mcq: 45, numerical: 0 },
+    { subject: 'Chemistry', mcq: 45, numerical: 0 },
+    { subject: 'Biology', mcq: 90, numerical: 0 },
   ],
   'MHT-CET A': [
-    { subject: 'Physics', count: 50 },
-    { subject: 'Chemistry', count: 50 },
-    { subject: 'Mathematics', count: 50 },
+    { subject: 'Physics', mcq: 50, numerical: 0 },
+    { subject: 'Chemistry', mcq: 50, numerical: 0 },
+    { subject: 'Mathematics', mcq: 50, numerical: 0 },
   ],
   'MHT-CET B': [
-    { subject: 'Physics', count: 50 },
-    { subject: 'Chemistry', count: 50 },
-    { subject: 'Biology', count: 100 },
+    { subject: 'Physics', mcq: 50, numerical: 0 },
+    { subject: 'Chemistry', mcq: 50, numerical: 0 },
+    { subject: 'Biology', mcq: 100, numerical: 0 },
   ],
 };
 
@@ -74,17 +74,36 @@ export async function POST(req: NextRequest) {
     let totalQuestions = 0;
 
     // Fetch questions for all subjects in parallel for maximum speed
-    const fetchPromises = weightage.map(async ({ subject, count }) => {
-      const { data: questions } = await admin
+    const fetchPromises = weightage.map(async ({ subject, mcq, numerical }) => {
+      const { data: mcqQs } = await admin
         .from('questions')
         .select('id, marks')
         .eq('exam_type', examType)
-        .eq('subject', subject);
+        .eq('subject', subject)
+        .eq('question_type', 'mcq');
 
-      if (!questions || questions.length === 0) return null;
+      const { data: numQs } = await admin
+        .from('questions')
+        .select('id, marks')
+        .eq('exam_type', examType)
+        .eq('subject', subject)
+        .eq('question_type', 'numerical');
 
-      const shuffled = [...questions].sort(() => 0.5 - Math.random());
-      const selected = shuffled.slice(0, Math.min(count, shuffled.length));
+      const mcqPool = mcqQs || [];
+      const numPool = numQs || [];
+
+      const shuffledNum = [...numPool].sort(() => 0.5 - Math.random());
+      const selectedNum = shuffledNum.slice(0, numerical);
+      
+      const missingNum = numerical - selectedNum.length;
+      const targetMcqCount = mcq + missingNum;
+      
+      const shuffledMcq = [...mcqPool].sort(() => 0.5 - Math.random());
+      const selectedMcq = shuffledMcq.slice(0, targetMcqCount);
+
+      const selected = [...selectedMcq, ...selectedNum].sort(() => 0.5 - Math.random());
+      
+      if (selected.length === 0) return null;
       
       return { subject, selected };
     });
@@ -108,7 +127,7 @@ export async function POST(req: NextRequest) {
       const dummyQuestions = [];
       let demoTotalMarks = 0;
 
-      for (const { subject } of weightage) {
+      for (const { subject, mcq, numerical } of weightage) {
         sections[subject] = [];
         
         // Determine marks based on exam type rules
@@ -120,7 +139,8 @@ export async function POST(req: NextRequest) {
           qNeg = 0;
         }
 
-        for (let i = 1; i <= 5; i++) {
+        const totalReq = mcq + numerical;
+        for (let i = 1; i <= totalReq; i++) {
           const dummyQ = {
             exam_type: examType,
             subject: subject,

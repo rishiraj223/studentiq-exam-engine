@@ -9,12 +9,10 @@ export const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology'] as co
 export const NCERT_TAXONOMY = {
   '11th': {
     Physics: [
-      'Physical World', 'Units and Measurements', 'Motion in a Straight Line',
-      'Motion in a Plane', 'Laws of Motion', 'Work, Energy and Power',
-      'System of Particles and Rotational Motion', 'Gravitation',
-      'Mechanical Properties of Solids', 'Mechanical Properties of Fluids',
-      'Thermal Properties of Matter', 'Thermodynamics', 'Kinetic Theory',
-      'Oscillations', 'Waves'
+      'Units Dimensions Errors & Vectors', 'Kinematics', 'Laws of Motion',
+      'Work Power Energy & Circular Motion', 'COM & Collision', 'Rotational Motion',
+      'Gravitation', 'Properties of Solids', 'Fluid Mechanics', 'SHM',
+      'Thermal Properties', 'KTG & Thermodynamics', 'Wave Motion'
     ],
     Chemistry: [
       'Some Basic Concepts of Chemistry', 'Structure of Atom',
@@ -47,12 +45,10 @@ export const NCERT_TAXONOMY = {
   },
   '12th': {
     Physics: [
-      'Electric Charges and Fields', 'Electrostatic Potential and Capacitance',
-      'Current Electricity', 'Moving Charges and Magnetism', 'Magnetism and Matter',
-      'Electromagnetic Induction', 'Alternating Current', 'Electromagnetic Waves',
-      'Ray Optics and Optical Instruments', 'Wave Optics',
-      'Dual Nature of Radiation and Matter', 'Atoms', 'Nuclei',
-      'Semiconductor Electronics: Materials, Devices and Simple Circuits'
+      'Electrostatics', 'Capacitors', 'Current Electricity',
+      'Moving Charges, MEC & Magnetism', 'Electromagnetic Induction',
+      'Alternating Current', 'Wave Optics', 'EM Waves',
+      'Ray Optics', 'Semiconductors', 'Modern Physics'
     ],
     Chemistry: [
       'Solutions', 'Electrochemistry', 'Chemical Kinetics',

@@ -8,6 +8,7 @@ interface DashboardStats {
   totalStudents: number;
   students11th: number;
   students12th: number;
+  totalTests: number;
   totalAttempts: number;
   avgScorePercent: number;
   coachingId?: string;
