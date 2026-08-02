@@ -38,16 +38,43 @@ export async function POST(req: NextRequest) {
       difficulty,
       difficultyMix,
       count,
+      mcqCount,        // for NTA pattern
+      numericalCount,  // for NTA pattern
       // Multi-subject mode
       mode,
       sections,
     } = body;
 
+    const admin = createAdminClient();
+
+    if (mode === 'history' && body.questionIds && body.questionIds.length > 0) {
+      const { data, error } = await admin
+        .from('questions')
+        .select('id, question_text, options, image_url, correct_answer_index, subject, chapter, difficulty, marks, negative_marks, standard, explanation, question_type, numerical_answer')
+        .in('id', body.questionIds);
+
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      
+      // Keep the original order of the IDs
+      const orderedQuestions = body.questionIds.map((id: string) => data?.find((q: any) => q.id === id)).filter(Boolean);
+      const totalMarks = orderedQuestions.reduce((sum: number, q: any) => sum + (q.marks || 4), 0);
+      const mcqs = orderedQuestions.filter((q: any) => q.question_type !== 'numerical');
+      const nums = orderedQuestions.filter((q: any) => q.question_type === 'numerical');
+
+      return NextResponse.json({
+        questions: orderedQuestions,
+        coachingName,
+        testName: testName || 'Saved Test',
+        duration: duration || null,
+        totalMarks,
+        mcqCount: mcqs.length,
+        numericalCount: nums.length,
+      });
+    }
+
     if (!exam || !standard) {
       return NextResponse.json({ error: 'Missing exam or standard' }, { status: 400 });
     }
-
-    const admin = createAdminClient();
 
     // ── Feature E: Get recently used question IDs ──────────────────────────
     let usedIds: string[] = [];
@@ -76,7 +103,7 @@ export async function POST(req: NextRequest) {
 
       const baseQuery = admin
         .from('questions')
-        .select('id, question_text, options, image_url, correct_answer_index, subject, chapter, difficulty, marks, negative_marks, standard, explanation')
+        .select('id, question_text, options, image_url, correct_answer_index, subject, chapter, difficulty, marks, negative_marks, standard, explanation, question_type, numerical_answer')
         .eq('exam_type', exam)
         .eq('standard', standard)
         .eq('subject', subj)
@@ -126,6 +153,58 @@ export async function POST(req: NextRequest) {
       const chapterList: string[] = chapters || [];
       if (chapterList.length === 0) {
         return NextResponse.json({ error: 'No chapters selected' }, { status: 400 });
+      }
+
+      const buildQuery = (qType: string) => {
+        let q = admin
+          .from('questions')
+          .select('id, question_text, options, image_url, correct_answer_index, subject, chapter, difficulty, marks, negative_marks, standard, explanation, question_type, numerical_answer')
+          .eq('exam_type', exam)
+          .eq('standard', standard)
+          .eq('subject', subject)
+          .in('chapter', chapterList)
+          .eq('question_type', qType);
+        
+        if (usedIds.length > 0) q = q.not('id', 'in', `(${usedIds.join(',')})`);
+        return q;
+      };
+
+      if (mcqCount !== undefined && numericalCount !== undefined) {
+        let mcqQuery = buildQuery('mcq');
+        let numQuery = buildQuery('numerical');
+
+        const [mcqRes, numRes] = await Promise.all([
+          mcqQuery.limit(parseInt(mcqCount.toString()) * 4),
+          numQuery.limit(parseInt(numericalCount.toString()) * 4),
+        ]);
+
+        const mcqs = shuffle(mcqRes.data || []).slice(0, parseInt(mcqCount.toString()));
+        let nums = shuffle(numRes.data || []).slice(0, parseInt(numericalCount.toString()));
+
+        // Fallback: if not enough numericals, fill with more MCQs
+        if (nums.length < parseInt(numericalCount.toString())) {
+          const deficit = parseInt(numericalCount.toString()) - nums.length;
+          const extraMcqs = shuffle(mcqRes.data || []).slice(parseInt(mcqCount.toString()), parseInt(mcqCount.toString()) + deficit);
+          nums = [...nums, ...extraMcqs];
+        }
+
+        allQuestions = [...mcqs, ...nums];
+
+        if (allQuestions.length === 0) {
+          return NextResponse.json({ questions: [], coachingName, testName, duration });
+        }
+
+        const totalMarks = allQuestions.reduce((sum: number, q: any) => sum + (q.marks || 4), 0);
+
+        return NextResponse.json({
+          questions: allQuestions,
+          coachingName,
+          testName: testName || `${subject} — ${exam}`,
+          duration: duration || null,
+          totalMarks,
+          mcqCount: mcqs.length,
+          numericalCount: nums.length,
+        });
       }
 
       // Feature D: check for difficulty mix

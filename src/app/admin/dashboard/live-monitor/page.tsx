@@ -103,6 +103,17 @@ export default function LiveMonitorDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto pb-12">
+      {/* How it works banner */}
+      <div className="mb-6 bg-indigo-50 border border-indigo-200 rounded-2xl p-4 flex items-start gap-3">
+        <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0 mt-0.5">
+          <Activity className="w-4 h-4 text-indigo-600" />
+        </div>
+        <div>
+          <p className="text-sm font-black text-indigo-800 mb-0.5">How Live Monitor Works</p>
+          <p className="text-xs text-indigo-600 leading-relaxed">When students are actively taking an assigned exam, their browser sends a real-time heartbeat every 10 seconds. You will see them appear in the table below with their current question, time remaining, and any proctoring flags (tab switches / fullscreen exits). <strong>"0 Active Students" is normal when no test is live.</strong> Use "Force Submit All" to instantly end the exam for everyone.</p>
+        </div>
+      </div>
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-black text-slate-800 flex items-center gap-2">

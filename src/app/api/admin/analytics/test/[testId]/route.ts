@@ -13,12 +13,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ test
     const { testId } = await params;
     const admin = createAdminClient();
 
-    // 1. Fetch Test Details
+    // Query by testId only — coaching_id is NOT always stamped on templates
+    // (student practice tests are accessible if your students attempted them)
     const { data: test, error: testErr } = await admin
       .from('mock_test_templates')
       .select('id, name, exam_type')
       .eq('id', testId)
-      .eq('coaching_id', coachingId)
       .single();
 
     if (testErr || !test) return NextResponse.json({ error: 'Test not found' }, { status: 404 });
