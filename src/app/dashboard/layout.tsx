@@ -3,15 +3,16 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, FileText, PlusCircle, Settings, LogOut, ChevronRight, BookOpen } from 'lucide-react';
+import { LayoutDashboard, FileText, PlusCircle, Settings, LogOut, ChevronRight, BookOpen, Users, BarChart3 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/browser';
 import { toast } from 'sonner';
 
 const navItems = [
-  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
-  { href: '/dashboard/tests', label: 'My Tests', icon: FileText },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/students', label: 'My Students', icon: Users },
+  { href: '/dashboard/tests', label: 'Assigned Tests', icon: FileText },
   { href: '/dashboard/tests/create', label: 'Create Test', icon: PlusCircle },
-  { href: '/dashboard/questions', label: 'Question Bank', icon: BookOpen },
+  { href: '/dashboard/analytics', label: 'Advanced Analytics', icon: BarChart3 },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ];
 

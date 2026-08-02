@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Users, FileText, Activity, CheckCircle2, Clock, TrendingUp, BookOpen, Zap, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
+import { Users, FileText, Activity, CheckCircle2, Clock, TrendingUp, BookOpen, Zap, ChevronRight, Loader2, AlertCircle, AlertTriangle, MessageCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface DashboardStats {
@@ -70,6 +70,10 @@ export default function AdminDashboardOverview() {
   const [coachingInfo, setCoachingInfo] = useState<CoachingInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [atRiskStudents] = useState<any[]>([
+    { id: '1', name: 'Atharv Jadhav', issue: 'Scored 12% in recent mock test', phone: '919876543210' },
+    { id: '2', name: 'Rohan Shinde', issue: 'Missed the last 2 assigned tests', phone: '919876543211' }
+  ]);
 
   useEffect(() => {
     // Read coaching name from cookie immediately (no flash)
@@ -257,67 +261,46 @@ export default function AdminDashboardOverview() {
       {/* ── Bottom Grid: Activity + Quick Actions ───────── */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-        {/* Recent Activity Feed */}
+        {/* Attention Required Feed */}
         <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="font-bold text-slate-900 flex items-center gap-2">
-              <Activity className="w-4 h-4 text-blue-500" /> Recent Activity
+              <AlertTriangle className="w-4 h-4 text-rose-500" /> Attention Required
             </h2>
             <button
               onClick={() => router.push('/admin/dashboard/students')}
-              className="text-xs text-blue-600 font-bold hover:underline"
+              className="text-xs text-primary-600 font-bold hover:underline"
             >
               View All Students →
             </button>
           </div>
 
-          {isLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="w-7 h-7 animate-spin text-blue-400" />
-            </div>
-          ) : recentActivity.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center px-6">
-              <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mb-3">
-                <BookOpen className="w-7 h-7 text-slate-300" />
-              </div>
-              <p className="font-semibold text-slate-500">No test activity yet</p>
-              <p className="text-sm text-slate-400 mt-1">
-                Once your students start taking tests, their results will appear here.
-              </p>
-              <button
-                onClick={() => router.push('/admin/dashboard/assigned-tests')}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition"
-              >
-                Assign First Test →
-              </button>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-50">
-              {recentActivity.map((item, i) => (
-                <div key={i} className="flex items-center gap-4 px-5 py-3.5 hover:bg-slate-50 transition-colors">
-                  {/* Avatar */}
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
-                    {item.studentName.charAt(0).toUpperCase()}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-900 text-sm truncate">{item.studentName}</p>
-                    <p className="text-xs text-slate-400 truncate">completed <span className="font-semibold text-slate-600">{item.testName}</span></p>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <span className={`font-black text-sm ${
-                      item.scorePercent >= 70 ? 'text-emerald-600' :
-                      item.scorePercent >= 50 ? 'text-amber-600' : 'text-rose-500'
-                    }`}>
-                      {item.scorePercent}%
-                    </span>
-                    <p className="text-xs text-slate-400">{timeAgo(item.date)}</p>
-                  </div>
+          <div className="divide-y divide-slate-50">
+            {atRiskStudents.map((student) => (
+              <div key={student.id} className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50 transition-colors">
+                <div className="w-9 h-9 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-sm shrink-0">
+                  {student.name.charAt(0).toUpperCase()}
                 </div>
-              ))}
-            </div>
-          )}
+
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-slate-900 text-sm truncate">{student.name}</p>
+                  <p className="text-xs text-rose-500 font-medium truncate">{student.issue}</p>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <a
+                    href={`https://wa.me/${student.phone}?text=Hello, this is an update regarding ${student.name}'s recent performance. Notice: ${student.issue}. Please ensure they review the required topics.`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors shadow-sm"
+                    title="Message Parent on WhatsApp"
+                  >
+                    <MessageCircle className="w-4.5 h-4.5" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Quick Actions + Recent Tests */}

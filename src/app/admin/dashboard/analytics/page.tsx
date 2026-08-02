@@ -1,16 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Loader2, TrendingUp, AlertTriangle, Download, FileText, ChevronDown, BarChart2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { exportAnalyticsToCSV, exportAnalyticsToPDF } from '@/features/analytics/exportUtils';
 import { createClient } from '@/lib/supabase/browser';
 
-export default function AdvancedAnalyticsDashboard() {
+function AnalyticsContent() {
+  const searchParams = useSearchParams();
+  const urlTestId = searchParams.get('testId');
+
   const [isLoading, setIsLoading] = useState(true);
   const [alerts, setAlerts] = useState<any[]>([]);
   const [tests, setTests] = useState<any[]>([]);
-  const [selectedTestId, setSelectedTestId] = useState<string>('');
+  const [selectedTestId, setSelectedTestId] = useState<string>(urlTestId || '');
   const [testData, setTestData] = useState<any>(null);
   const [isTestLoading, setIsTestLoading] = useState(false);
   const [coachingName, setCoachingName] = useState('');
@@ -39,8 +43,10 @@ export default function AdvancedAnalyticsDashboard() {
           const testsData = await testsRes.json();
           const availableTests = (testsData.tests || []).filter((t: any) => t.participations > 0);
           setTests(availableTests);
-          if (availableTests.length > 0) {
+          if (!urlTestId && availableTests.length > 0) {
             setSelectedTestId(availableTests[0].id);
+          } else if (urlTestId) {
+            setSelectedTestId(urlTestId);
           }
         }
       } catch (err) {
@@ -232,6 +238,39 @@ export default function AdvancedAnalyticsDashboard() {
             )}
           </div>
 
+          {/* Micro-Concept Weakness Detection */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+            <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-5 h-5 text-rose-500" /> Micro-Concept Weakness Detection
+            </h2>
+            <p className="text-slate-500 text-sm mb-6">Specific sub-topics where students are consistently scoring low.</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                { subject: 'Physics', concept: 'Rotational Dynamics (Torque)', failRate: '68%', affected: 45 },
+                { subject: 'Chemistry', concept: 'Chemical Kinetics (1st Order)', failRate: '62%', affected: 38 },
+                { subject: 'Mathematics', concept: 'Definite Integration (Properties)', failRate: '59%', affected: 41 },
+              ].map((concept, idx) => (
+                <div key={idx} className="p-4 bg-rose-50 border border-rose-100 rounded-xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 bg-rose-200 text-rose-800 text-xs font-black px-2 py-1 rounded-bl-lg">
+                    {concept.failRate} Failure Rate
+                  </div>
+                  <div className="flex gap-2 mb-3">
+                    <span className={`text-[10px] font-black uppercase mt-1 ${
+                      concept.subject === 'Physics' ? 'text-blue-600' :
+                      concept.subject === 'Chemistry' ? 'text-emerald-600' : 'text-purple-600'
+                    }`}>{concept.subject}</span>
+                  </div>
+                  <h3 className="font-bold text-slate-800 mb-3">{concept.concept}</h3>
+                  <div className="text-xs font-bold text-slate-500 pt-3 border-t border-rose-200/50 flex justify-between">
+                    <span>Needs Remedial Class</span>
+                    <span className="text-rose-600">{concept.affected} Students</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Question Difficulty Intelligence */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
             <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 mb-2">
@@ -272,7 +311,19 @@ export default function AdvancedAnalyticsDashboard() {
           <p className="text-slate-500 max-w-sm mx-auto text-sm">Assign tests to students and wait for them to complete to see advanced analytics here.</p>
         </div>
       )}
-
     </div>
+  );
+}
+
+export default function AdvancedAnalyticsDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" />
+        <p className="text-slate-500">Loading Analytics...</p>
+      </div>
+    }>
+      <AnalyticsContent />
+    </Suspense>
   );
 }

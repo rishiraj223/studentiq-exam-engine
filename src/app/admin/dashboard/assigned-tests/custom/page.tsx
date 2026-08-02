@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, Upload, X, Check, Image as ImageIcon, Loader2, Sparkles } from 'lucide-react';
+import { ArrowLeft, Save, Upload, X, Check, Image as ImageIcon, Loader2, Sparkles, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { createClient } from '@/lib/supabase/browser';
 
 const EXAMS = ['JEE Main', 'JEE Advanced', 'NEET', 'MHT-CET A', 'MHT-CET B'];
 const SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Biology'];
+const BATCH_OPTIONS = ['All Batches', 'JEE', 'NEET', 'CET-A', 'CET-B'];
 
 type CustomQuestion = {
   id: string; // usually q1, q2...
@@ -76,6 +77,22 @@ export default function CustomTestCreator() {
   const [exam, setExam] = useState('JEE Main');
   const [duration, setDuration] = useState<number | string>(60);
   const [dueDate, setDueDate] = useState('');
+  const [proctoring, setProctoring] = useState({ fullscreen: true, tabSwitch: true });
+  const [selectedBatches, setSelectedBatches] = useState<string[]>(['All Batches']);
+
+  const toggleBatch = (batch: string) => {
+    if (batch === 'All Batches') {
+      setSelectedBatches(['All Batches']);
+      return;
+    }
+    const newBatches = selectedBatches.includes('All Batches') ? [] : [...selectedBatches];
+    if (newBatches.includes(batch)) {
+      const filtered = newBatches.filter(b => b !== batch);
+      setSelectedBatches(filtered.length === 0 ? ['All Batches'] : filtered);
+    } else {
+      setSelectedBatches([...newBatches, batch]);
+    }
+  };
   
   const [subjectCounts, setSubjectCounts] = useState<Record<string, number>>({
     'Physics': 10,
@@ -182,7 +199,7 @@ export default function CustomTestCreator() {
 
     try {
       const payload = {
-        meta: { testName, exam, duration, totalQuestions: questions.length },
+        meta: { testName, exam, duration, totalQuestions: questions.length, proctoring, batches: selectedBatches },
         questions
       };
 
@@ -284,6 +301,40 @@ export default function CustomTestCreator() {
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2">Due Date</label>
               <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100">
+            <h3 className="font-bold text-slate-800 mb-3 text-sm">Assign to Batches</h3>
+            <div className="flex flex-wrap gap-2">
+              {BATCH_OPTIONS.map(batch => {
+                const isSelected = selectedBatches.includes(batch);
+                return (
+                  <button 
+                    key={batch}
+                    onClick={() => toggleBatch(batch)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border ${isSelected ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                  >
+                    {batch}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100">
+            <h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-blue-500" /> Proctoring & Security
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-slate-200 bg-slate-50 hover:border-blue-300 transition">
+                <input type="checkbox" checked={proctoring.fullscreen} onChange={(e) => setProctoring({...proctoring, fullscreen: e.target.checked})} className="w-4 h-4 text-blue-600 rounded border-slate-300" />
+                <span className="text-sm font-semibold text-slate-700">Enforce Full-screen Mode</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-slate-200 bg-slate-50 hover:border-blue-300 transition">
+                <input type="checkbox" checked={proctoring.tabSwitch} onChange={(e) => setProctoring({...proctoring, tabSwitch: e.target.checked})} className="w-4 h-4 text-blue-600 rounded border-slate-300" />
+                <span className="text-sm font-semibold text-slate-700">Tab Switch Detection</span>
+              </label>
             </div>
           </div>
 
