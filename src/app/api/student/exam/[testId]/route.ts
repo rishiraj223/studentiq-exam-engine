@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NotificationService } from '@/lib/notifications';
+import fs from 'fs';
+import path from 'path';
+
+const TEST_META_PATH = path.join(process.cwd(), 'data', 'test_metadata.json');
+
+function getTestMeta(testId: string) {
+  try {
+    if (fs.existsSync(TEST_META_PATH)) {
+      const db = JSON.parse(fs.readFileSync(TEST_META_PATH, 'utf-8'));
+      return db[testId] || null;
+    }
+  } catch (err) {}
+  return null;
+}
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ testId: string }> }) {
   try {
@@ -58,9 +72,16 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ test
 
     if (qErr || !qs) return NextResponse.json({ error: 'Failed to load questions' }, { status: 500 });
 
+    // Attach section timing if available
+    const meta = getTestMeta(testId);
+    if (meta && meta.sectionTiming) {
+      tmpl.sectionTiming = meta.sectionTiming;
+    }
+
     return NextResponse.json({ template: tmpl, questions: qs });
-  } catch (error) {
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+  } catch (err) {
+    console.error('Exam load error:', err);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
 

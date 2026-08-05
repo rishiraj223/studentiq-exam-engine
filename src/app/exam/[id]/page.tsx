@@ -82,7 +82,12 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
   const [fullscreenExits, setFullscreenExits] = useState(0);
   const [proctorWarning, setProctorWarning] = useState('');
 
+  // Section Timing
+  const [sectionTimeLeft, setSectionTimeLeft] = useState<Record<string, number>>({});
+  const [hasSectionTiming, setHasSectionTiming] = useState(false);
+
   const subjects = template ? Object.keys(template.sections) : [];
+  const currentSubject = questions[currentIndex]?.subject;
 
   // ===== LOAD DATA =====
   useEffect(() => {
@@ -109,6 +114,15 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
       
       setTemplate(tmpl);
       setTimeLeft(tmpl.duration_minutes * 60);
+
+      if (tmpl.sectionTiming && Object.keys(tmpl.sectionTiming).length > 0) {
+        setHasSectionTiming(true);
+        const st: Record<string, number> = {};
+        Object.entries(tmpl.sectionTiming).forEach(([sub, mins]) => {
+          st[sub] = Number(mins) * 60;
+        });
+        setSectionTimeLeft(st);
+      }
 
       const ordered: Question[] = [];
       Object.keys(tmpl.sections).forEach(subject => {
@@ -193,13 +207,13 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStarted, currentIndex, isSubmitting, testId]); 
-  // We include currentIndex and timeLeft dependencies to ensure the ping gets the latest state, but we need to manage the interval properly. Actually, putting them in deps resets the interval frequently, which is fine for simple pings.
 
   // ===== TIMER =====
   useEffect(() => {
     if (!hasStarted || isLoading || questions.length === 0 || timeLeft <= 0) return;
+    
     timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
+      setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timerRef.current!);
           forceSubmitTest();
@@ -207,6 +221,27 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
         }
         return prev - 1;
       });
+
+      if (hasSectionTiming) {
+        setSectionTimeLeft((prev) => {
+          if (!currentSubject || prev[currentSubject] === undefined) return prev;
+          const newTime = prev[currentSubject] - 1;
+          
+          if (newTime <= 0) {
+            // Time's up for this section, jump to next available
+            const nextSub = subjects.find(s => s !== currentSubject && prev[s] > 1);
+            if (nextSub) {
+              const nextSubIdx = questions.findIndex(q => q.subject === nextSub);
+              if (nextSubIdx !== -1) setCurrentIndex(nextSubIdx);
+            } else {
+              // If all sections are exhausted
+              forceSubmitTest();
+            }
+            return { ...prev, [currentSubject]: 0 };
+          }
+          return { ...prev, [currentSubject]: newTime };
+        });
+      }
     }, 1000);
     return () => clearInterval(timerRef.current!);
   }, [hasStarted, isLoading, questions.length]);
@@ -302,7 +337,6 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
     if (timerRef.current) clearInterval(timerRef.current);
     if (pingRef.current) clearInterval(pingRef.current);
 
-    // One final ping to mark submitted (optional, handled by standard submit too but good measure)
     try {
       fetch('/api/student/live-ping', {
         method: 'POST',
@@ -419,9 +453,19 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
             <p className="text-xs text-slate-400">{template?.exam_type}</p>
           </div>
         </div>
-        <div className={`flex items-center gap-2 font-mono text-xl font-bold px-4 py-1.5 rounded-lg ${timeLeft < 300 ? 'bg-red-600 animate-pulse' : 'bg-slate-700'}`}>
-          <Clock className="w-5 h-5" />
-          {formatTime(timeLeft)}
+        <div className="flex items-center gap-4">
+          {hasSectionTiming && currentSubject && (
+            <div className="hidden sm:flex items-center gap-1.5 font-mono text-sm px-3 py-1 rounded bg-slate-800">
+              <span className="text-slate-400">{currentSubject}:</span>
+              <span className={sectionTimeLeft[currentSubject] < 60 ? 'text-red-400 font-bold' : 'text-blue-300'}>
+                {formatTime(sectionTimeLeft[currentSubject] || 0)}
+              </span>
+            </div>
+          )}
+          <div className={`flex items-center gap-2 font-mono text-xl font-bold px-4 py-1.5 rounded-lg ${timeLeft < 300 ? 'bg-red-600 animate-pulse' : 'bg-slate-700'}`}>
+            <Clock className="w-5 h-5" />
+            {formatTime(timeLeft)}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -444,13 +488,18 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
         {subjects.map(sub => {
           const subQs = questions.filter(q => q.subject === sub);
           const subAnswered = subQs.filter(q => answers[q.id] !== undefined && answers[q.id] !== null).length;
+          const isTimeUp = hasSectionTiming && sectionTimeLeft[sub] <= 0;
           return (
             <button
               key={sub}
-              onClick={() => goToQuestion(questions.findIndex(q => q.subject === sub))}
-              className="px-5 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap border-transparent text-slate-600 hover:text-blue-700 hover:border-blue-400"
+              onClick={() => { if (!isTimeUp) goToQuestion(questions.findIndex(q => q.subject === sub)) }}
+              disabled={isTimeUp}
+              className={`px-5 py-2.5 text-sm font-semibold border-b-2 transition-all whitespace-nowrap ${currentSubject === sub ? 'border-blue-600 text-blue-700 bg-blue-50/50' : 'border-transparent text-slate-600 hover:text-blue-700'} ${isTimeUp ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}`}
             >
-              {sub} <span className="text-xs text-slate-400 ml-1">({subAnswered}/{subQs.length})</span>
+              <div className="flex items-center gap-2">
+                <span>{sub} <span className="text-xs text-slate-400 ml-1">({subAnswered}/{subQs.length})</span></span>
+                {isTimeUp && <span className="text-[10px] uppercase font-bold text-red-500 bg-red-100 px-1.5 py-0.5 rounded">Time Up</span>}
+              </div>
             </button>
           );
         })}
@@ -608,17 +657,28 @@ export default function ExamSimulatorPage({ params }: { params: Promise<{ id: st
                   {questions
                     .map((q, idx) => ({ q, idx }))
                     .filter(({ q }) => q.subject === sub)
-                    .map(({ q, idx }) => (
-                      <button
-                        key={q.id}
-                        onClick={() => goToQuestion(idx)}
-                        className={`w-8 h-8 rounded text-xs font-bold transition-all hover:opacity-80 ${
-                          idx === currentIndex ? 'ring-2 ring-offset-1 ring-blue-500 ' : ''
-                        }${STATUS_COLORS[statuses[q.id] || 'not-visited']}`}
-                      >
-                        {idx + 1}
-                      </button>
-                    ))}
+                    .map(({ q, idx }) => {
+                      let bg = 'bg-white border-slate-200 text-slate-600 hover:border-slate-400';
+                      if (hasSectionTiming && sectionTimeLeft[q.subject] <= 0 && currentSubject !== q.subject) {
+                        bg = 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-50';
+                      } else if (statuses[q.id] === 'answered') bg = 'bg-green-100 border-green-500 text-green-800';
+                      else if (statuses[q.id] === 'not-answered') bg = 'bg-red-100 border-red-500 text-red-800';
+                      else if (statuses[q.id] === 'marked-review') bg = 'bg-purple-100 border-purple-500 text-purple-800';
+                      else if (statuses[q.id] === 'answered-marked') bg = 'bg-indigo-100 border-indigo-500 text-indigo-800';
+
+                      return (
+                        <button
+                          key={q.id}
+                          onClick={() => {
+                            if (hasSectionTiming && sectionTimeLeft[q.subject] <= 0) return;
+                            goToQuestion(idx);
+                          }}
+                          className={`w-9 h-9 rounded flex items-center justify-center text-xs font-bold border transition-colors ${bg} ${idx === currentIndex ? 'ring-2 ring-offset-2 ring-blue-500 scale-110' : ''}`}
+                        >
+                          {idx + 1}
+                        </button>
+                      );
+                    })}
                 </div>
               </div>
             ))}

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, Plus, Users, Calendar, Loader2, Download, MessageCircle, Filter } from 'lucide-react';
 import { toast } from 'sonner';
-import { exportAnalyticsToPDF } from '@/features/analytics/exportUtils';
+import { exportTestResultsPDF } from '@/features/analytics/exportUtils';
 
 type AssignedTest = {
   id: string;
@@ -32,16 +32,19 @@ export default function AdminAssignedTestsPage() {
     setWaModalOpen(true);
   };
 
-  const handleDownloadPDF = async (test: AssignedTest) => {
-    toast.loading(`Preparing PDF for ${test.name}...`, { id: 'pdf-toast' });
+  const handleDownloadPDF = (test: AssignedTest) => {
     try {
-      const res = await fetch(`/api/admin/analytics/test/${test.id}`);
-      if (!res.ok) throw new Error('Failed to fetch test data');
-      const data = await res.json();
-      exportAnalyticsToPDF(test.name, 'Coaching Admin', data.batchPerformance || [], data.questionDifficulty || []);
-      toast.success('Downloaded PDF!', { id: 'pdf-toast' });
+      const cookies = document.cookie.split(';');
+      const sessionCookie = cookies.find(c => c.trim().startsWith('exam_coaching_session='));
+      let coachingName = 'Coaching Admin';
+      if (sessionCookie) {
+        try { coachingName = JSON.parse(decodeURIComponent(sessionCookie.split('=').slice(1).join('=')))?.coaching_name || 'Coaching Admin'; } catch {}
+      }
+      exportTestResultsPDF(test, coachingName);
+      toast.success(`Downloaded ${test.name} result PDF!`);
     } catch (err) {
-      toast.error('Could not generate PDF right now.', { id: 'pdf-toast' });
+      console.error('PDF Generation Error:', err);
+      toast.error('Could not generate PDF.');
     }
   };
   

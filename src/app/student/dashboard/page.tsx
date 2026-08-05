@@ -12,6 +12,7 @@ type QuickStats = {
   totalTests: number;
   avgScorePercent: number;
   accuracyPercent: number;
+  studyStreak: number;
 };
 
 type AssignedTest = {
@@ -95,15 +96,39 @@ export default function StudentHomePage() {
           </h1>
         </div>
         {!isLoading && stats && stats.totalTests > 0 && (
-          <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-2xl">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-sm font-bold text-emerald-700">{stats.totalTests} tests completed</span>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-xl">
+              <Zap className="w-4 h-4 text-orange-500 fill-orange-500" />
+              <span className="text-sm font-black text-orange-700">{stats.studyStreak || 0} Day Streak</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-200 rounded-2xl hidden sm:flex">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-sm font-bold text-emerald-700">{stats.totalTests} tests completed</span>
+            </div>
           </div>
         )}
       </div>
 
       {/* ── Stat Cards ─────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Study Streak */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Study Streak</p>
+            <div className="w-8 h-8 bg-orange-100 rounded-xl flex items-center justify-center">
+              <Zap className="w-4 h-4 text-orange-500" />
+            </div>
+          </div>
+          {isLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin text-slate-300" />
+          ) : (
+            <div className="flex items-end gap-1.5">
+              <p className="text-3xl font-black text-slate-900">{stats?.studyStreak ?? 0}</p>
+              <p className="text-sm font-bold text-slate-400 mb-1">days</p>
+            </div>
+          )}
+        </div>
+
         {/* Tests Taken */}
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">

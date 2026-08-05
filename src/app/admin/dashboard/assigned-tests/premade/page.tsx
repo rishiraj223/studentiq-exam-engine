@@ -36,6 +36,9 @@ export default function PremadeTestCreator() {
   const [dueDate, setDueDate] = useState('');
   const [proctoring, setProctoring] = useState({ fullscreen: true, tabSwitch: true });
   const [selectedBatches, setSelectedBatches] = useState<string[]>(['All Batches']);
+  
+  const [enableSectionTiming, setEnableSectionTiming] = useState(false);
+  const [sectionTimings, setSectionTimings] = useState<Record<string, number>>({});
 
   const toggleBatch = (batch: string) => {
     if (batch === 'All Batches') {
@@ -163,6 +166,7 @@ export default function PremadeTestCreator() {
           dueDate: dueDate || null,
           proctoring,
           batches: selectedBatches,
+          sectionTiming: enableSectionTiming ? sectionTimings : null,
           questionIds: selectedQuestions.map(q => q.id),
           subjects: Array.from(new Set(selectedQuestions.map(q => q.subject)))
         })
@@ -345,6 +349,37 @@ export default function PremadeTestCreator() {
             </div>
           </div>
           
+          {/* Section Timing Settings */}
+          <div className="pt-3 border-t border-slate-200">
+            <label className="flex items-center gap-2 cursor-pointer mb-3">
+              <input type="checkbox" checked={enableSectionTiming} onChange={(e) => setEnableSectionTiming(e.target.checked)} className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" />
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Enable Section-Level Timing</span>
+            </label>
+            
+            {enableSectionTiming && (
+              <div className="space-y-2 pl-6">
+                {Array.from(new Set(selectedQuestions.map(q => q.subject))).map(subj => (
+                  <div key={subj} className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-slate-700">{subj}</span>
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="number" 
+                        placeholder="Min"
+                        value={sectionTimings[subj] || ''} 
+                        onChange={e => setSectionTimings({...sectionTimings, [subj]: parseInt(e.target.value) || 0})}
+                        className="w-20 p-1.5 bg-white border border-slate-200 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-xs text-slate-400">mins</span>
+                    </div>
+                  </div>
+                ))}
+                {selectedQuestions.length === 0 && (
+                  <p className="text-xs text-slate-400 italic">Select questions to configure section times.</p>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="pt-3 border-t border-slate-200">
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Assign to Batches</label>
             <div className="flex flex-wrap gap-2">

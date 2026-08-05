@@ -1,5 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import fs from 'fs';
+import path from 'path';
+
+const TEST_META_PATH = path.join(process.cwd(), 'data', 'test_metadata.json');
+
+function saveTestMeta(testId: string, meta: any) {
+  try {
+    if (!fs.existsSync(path.join(process.cwd(), 'data'))) fs.mkdirSync(path.join(process.cwd(), 'data'));
+    let db: any = {};
+    if (fs.existsSync(TEST_META_PATH)) {
+      db = JSON.parse(fs.readFileSync(TEST_META_PATH, 'utf-8'));
+    }
+    db[testId] = meta;
+    fs.writeFileSync(TEST_META_PATH, JSON.stringify(db, null, 2));
+  } catch (err) {
+    console.error('Failed to save test meta', err);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +28,7 @@ export async function POST(req: NextRequest) {
     if (!session?.coaching_id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const coachingId = session.coaching_id;
-    const { name, examType, durationMinutes, dueDate, questionIds } = await req.json();
+    const { name, examType, durationMinutes, dueDate, questionIds, proctoring, sectionTiming, batches } = await req.json();
 
     if (!name || !examType || !questionIds || questionIds.length === 0) {
       return NextResponse.json({ error: 'Missing required fields or empty test.' }, { status: 400 });
@@ -57,6 +75,13 @@ export async function POST(req: NextRequest) {
       console.error('Premade Test Insert Error:', insertErr);
       return NextResponse.json({ error: insertErr.message }, { status: 500 });
     }
+
+    // Save extra metadata locally
+    saveTestMeta(template.id, {
+      proctoring: proctoring || { fullscreen: false, tabSwitch: false },
+      sectionTiming: sectionTiming || null,
+      batches: batches || ['All Batches']
+    });
 
     return NextResponse.json({ ok: true, id: template.id });
   } catch (err) {

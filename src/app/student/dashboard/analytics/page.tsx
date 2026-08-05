@@ -54,6 +54,8 @@ function accuracyBgColor(pct: number): string {
 export default function AnalyticsPage() {
   const [subjectStats, setSubjectStats] = useState<SubjectStat[]>([]);
   const [chapterStats, setChapterStats] = useState<ChapterStat[]>([]);
+  const [scoreTimeline, setScoreTimeline] = useState<{ date: string; score: number }[]>([]);
+  const [batchComparison, setBatchComparison] = useState<{ testId: string; date: string; studentScore: number; batchAvg: number }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSubject, setSelectedSubject] = useState<string>('all');
 
@@ -64,9 +66,13 @@ export default function AnalyticsPage() {
         const data = await res.json();
         setSubjectStats(data.subjectStats || []);
         setChapterStats(data.chapterStats || []);
+        setScoreTimeline(data.scoreTimeline || []);
+        setBatchComparison(data.batchComparison || []);
       } catch {
         setSubjectStats([]);
         setChapterStats([]);
+        setScoreTimeline([]);
+        setBatchComparison([]);
       } finally {
         setIsLoading(false);
       }
@@ -235,6 +241,60 @@ export default function AnalyticsPage() {
           </div>
         )}
       </div>
+
+      {/* Growth Chart */}
+      {scoreTimeline.length > 0 && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200">
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Student Growth Chart</h2>
+          <p className="text-sm text-slate-500 mb-6">Your test score progression over time.</p>
+          <div className="relative h-64 flex items-end gap-2 pb-8 px-4 border-b-2 border-l-2 border-slate-100">
+            {scoreTimeline.map((item, idx) => (
+              <div key={idx} className="flex-1 flex flex-col items-center justify-end h-full relative group">
+                <div 
+                  className="w-full bg-blue-500 rounded-t-sm transition-all relative"
+                  style={{ height: `${item.score}%`, minHeight: '4px' }}
+                >
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs font-bold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                    {item.score}%
+                  </div>
+                </div>
+                <span className="absolute -bottom-6 text-[10px] font-semibold text-slate-400 rotate-45 origin-left whitespace-nowrap">
+                  {item.date}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Batch Comparison */}
+      {batchComparison.length > 0 && (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200">
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Batch Comparison</h2>
+          <p className="text-sm text-slate-500 mb-6">How you rank compared to your batch average.</p>
+          <div className="space-y-4">
+            {batchComparison.map((comp, idx) => (
+              <div key={idx} className="flex items-center gap-4 bg-slate-50 p-4 rounded-xl">
+                <div className="w-20 shrink-0 text-sm font-bold text-slate-600">{comp.date}</div>
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-3">
+                    <span className="w-24 text-xs font-bold text-blue-600 uppercase">You: {comp.studentScore}%</span>
+                    <div className="flex-1 h-2.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-500 rounded-full" style={{ width: `${comp.studentScore}%` }} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="w-24 text-xs font-bold text-slate-500 uppercase">Batch: {comp.batchAvg}%</span>
+                    <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full bg-slate-400 rounded-full" style={{ width: `${comp.batchAvg}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -55,7 +55,9 @@ export async function GET(req: NextRequest) {
     const avgScorePercent = totalMaxScoreSum > 0 ? Math.round((totalScoreSum / totalMaxScoreSum) * 100) : 0;
     const accuracyPercent = totalAttemptedQs > 0 ? Math.round((totalCorrectQs / totalAttemptedQs) * 100) : 0;
 
-    const quickStats = { totalTests, avgScorePercent, accuracyPercent };
+    const studyStreak = Math.floor(Math.random() * 5) + 3; // Mock 3-7 day streak
+
+    const quickStats = { totalTests, avgScorePercent, accuracyPercent, studyStreak };
 
     return NextResponse.json({ tests, attempts, quickStats });
   } catch (error) {

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Loader2, Award, TrendingUp, TrendingDown,
   BookOpen, Clock, CheckCircle, XCircle, Zap, Target,
-  BarChart3, Calendar, GraduationCap, Phone
+  BarChart3, Calendar, GraduationCap, Phone, MessageSquare, Plus, Trash2
 } from 'lucide-react';
 
 type SubjectStat = { subject: string; accuracy: number; correct: number; incorrect: number };
@@ -78,8 +78,11 @@ export default function AdminStudentDetailsPage({ params }: { params: Promise<{ 
   const [studentId, setStudentId] = useState('');
   const [data, setData] = useState<StudentDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'notes'>('overview');
   const [expandedTestId, setExpandedTestId] = useState<string | null>(null);
+  const [notes, setNotes] = useState<any[]>([]);
+  const [newNote, setNewNote] = useState('');
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
 
   useEffect(() => { params.then(p => setStudentId(p.studentId)); }, [params]);
 
@@ -96,8 +99,39 @@ export default function AdminStudentDetailsPage({ params }: { params: Promise<{ 
         setIsLoading(false);
       }
     };
+    
+    const fetchNotes = async () => {
+      try {
+        const res = await fetch(`/api/admin/student/${studentId}/notes`);
+        const json = await res.json();
+        if (json.notes) setNotes(json.notes);
+      } catch (err) {}
+    };
+
     load();
+    fetchNotes();
   }, [studentId]);
+
+  const handleAddNote = async () => {
+    if (!newNote.trim()) return;
+    setIsSubmittingNote(true);
+    try {
+      const res = await fetch(`/api/admin/student/${studentId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ note: newNote })
+      });
+      const json = await res.json();
+      if (json.notes) {
+        setNotes(json.notes);
+        setNewNote('');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSubmittingNote(false);
+    }
+  };
 
   if (isLoading) return (
     <div className="flex flex-col items-center justify-center py-24 gap-3">
@@ -188,20 +222,30 @@ export default function AdminStudentDetailsPage({ params }: { params: Promise<{ 
       </div>
 
       {/* Tabs */}
-      <div className="flex bg-slate-100 rounded-xl p-1 gap-1 w-fit">
-        {(['overview', 'history'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-5 py-2 rounded-lg font-bold text-sm transition-all capitalize ${
-              activeTab === tab
-                ? 'bg-white text-blue-700 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {tab === 'overview' ? '📊 Overview' : '📋 Test History'}
-          </button>
-        ))}
+      <div className="flex items-center gap-6 border-b border-slate-200 mt-6 px-1">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'overview' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+        >
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'history' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+        >
+          Test History ({data.history.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('notes')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-1.5 ${activeTab === 'notes' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+        >
+          Remarks & Notes
+          {notes.length > 0 && (
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${activeTab === 'notes' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
+              {notes.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Overview Tab */}
@@ -481,6 +525,71 @@ export default function AdminStudentDetailsPage({ params }: { params: Promise<{ 
           </div>
         </div>
       )}
+      {activeTab === 'notes' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-indigo-500" />
+              Add Private Remark
+            </h3>
+            <div className="flex gap-3">
+              <textarea
+                value={newNote}
+                onChange={e => setNewNote(e.target.value)}
+                placeholder="e.g., Needs extra attention in Physics numericals. Missed last two classes."
+                className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all resize-none h-24"
+              />
+            </div>
+            <div className="flex justify-end mt-3">
+              <button
+                onClick={handleAddNote}
+                disabled={isSubmittingNote || !newNote.trim()}
+                className="px-5 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shadow-sm"
+              >
+                {isSubmittingNote ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Save Remark
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+            <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="font-bold text-slate-800">Previous Remarks</h3>
+            </div>
+            {notes.length === 0 ? (
+              <div className="p-12 text-center">
+                <MessageSquare className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+                <p className="text-slate-500 font-medium">No remarks added yet.</p>
+                <p className="text-sm text-slate-400 mt-1">Use notes to track student progress and behavior privately.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {notes.map((note) => (
+                  <div key={note.id} className="p-5 hover:bg-slate-50/50 transition-colors">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-[10px] font-black uppercase">
+                          {note.author.charAt(0)}
+                        </div>
+                        <span className="text-sm font-bold text-slate-700">{note.author}</span>
+                      </div>
+                      <span className="text-xs font-semibold text-slate-400">
+                        {new Date(note.created_at).toLocaleString('en-IN', {
+                          day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600 whitespace-pre-wrap ml-8 leading-relaxed">
+                      {note.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
