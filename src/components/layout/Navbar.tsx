@@ -46,19 +46,38 @@ export function Navbar() {
 
             {/* Desktop Buttons */}
             <div className="hidden md:flex items-center space-x-3">
+              {/* Old website link */}
+              <a
+                href="https://studentiq.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-600 text-white text-sm font-black transition-all shadow-[0_4px_0_rgb(79,70,229)] hover:shadow-[0_2px_0_rgb(79,70,229)] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
+              >
+                <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                  <span className="text-[10px] font-black tracking-tighter text-white">V1</span>
+                </div>
+                <span>Coaching Management Software</span>
+              </a>
+
               {/* Request Demo — highlighted */}
               <button
                 onClick={() => setIsDemoOpen(true)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-primary-500 to-accent-purple text-white text-sm font-semibold shadow-md hover:shadow-lg hover:opacity-90 transition-all"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white text-sm font-black transition-all shadow-[0_4px_0_rgb(168,85,247)] hover:shadow-[0_2px_0_rgb(168,85,247)] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 Request Demo
               </button>
+              
               <Link href="/admin/login">
-                <Button variant="secondary" size="sm">Admin Login</Button>
+                <button className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-sm font-black transition-all shadow-[0_4px_0_rgb(16,185,129)] hover:shadow-[0_2px_0_rgb(16,185,129)] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]">
+                  Admin Login
+                </button>
               </Link>
+              
               <Link href="/student/login">
-                <Button variant="primary" size="sm">Student Login</Button>
+                <button className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 text-white text-sm font-black transition-all shadow-[0_4px_0_rgb(245,158,11)] hover:shadow-[0_2px_0_rgb(245,158,11)] hover:translate-y-[2px] active:shadow-none active:translate-y-[4px]">
+                  Student Login
+                </button>
               </Link>
             </div>
 
